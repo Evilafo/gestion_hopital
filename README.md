@@ -1,6 +1,6 @@
-# 📘 Hospital Management System (Flask + MySQL)
+# Hospital Management System (Flask + MySQL)
 
-## 🚀 Description du projet
+## Description du projet
 
 Ce projet est une application web de gestion d’hôpital développée avec **Flask (Python)**, **HTML/CSS/JS** et une **base de données MySQL**.
 
@@ -19,7 +19,7 @@ Ce projet est conçu comme un **prototype évolutif** : il peut être enrichi av
 
 ---
 
-## 📂 Structure du projet
+## Structure du projet
 
 ```
 hospital/
@@ -49,7 +49,7 @@ hospital/
 
 ---
 
-## ⚙️ Prérequis
+## Prérequis
 
 Avant de lancer le projet, assurez-vous d’avoir installé :
 
@@ -67,7 +67,7 @@ git --version
 
 ---
 
-## 📦 Installation du projet
+## Installation du projet
 
 ### 1. Cloner le dépôt
 
@@ -103,7 +103,7 @@ FLUSH PRIVILEGES;
 
 ---
 
-## 🔑 Configuration
+## Configuration
 
 Créer un fichier **`.env`** à la racine :
 
@@ -115,7 +115,7 @@ SQLALCHEMY_DATABASE_URI=mysql+pymysql://hospital_user:password123@localhost/hosp
 
 ---
 
-## 🛠️ Initialiser la base de données
+## Initialiser la base de données
 
 Appliquer les migrations pour créer les tables :
 
@@ -127,18 +127,18 @@ flask db upgrade
 
 ---
 
-## ▶️ Lancer l’application
+## Lancer l’application
 
 ```bash
 flask run
 ```
 
 Ouvrez votre navigateur et allez sur :
-👉 [http://127.0.0.1:5000](http://127.0.0.1:5000)
+[http://127.0.0.1:5000](http://127.0.0.1:5000)
 
 ---
 
-## 👥 Utilisateurs & Rôles
+## Utilisateurs & Rôles
 
 * **Admin** : gestion globale (médecins, patients, salles, planning).
 * **Secrétaire** : gestion des rendez-vous, file d’attente, accueil.
@@ -147,7 +147,7 @@ Ouvrez votre navigateur et allez sur :
 
 ---
 
-## 📌 Fonctionnalités principales
+## Fonctionnalités principales
 
 ✅ Gestion des patients (CRUD)
 ✅ Gestion des médecins et spécialités
@@ -160,7 +160,7 @@ Ouvrez votre navigateur et allez sur :
 
 ---
 
-## 🌱 Roadmap (Améliorations futures)
+## Roadmap (Améliorations futures)
 
 * [ ] Notifications email/SMS pour confirmation de rendez-vous.
 * [ ] Facturation et gestion des paiements.
@@ -170,7 +170,7 @@ Ouvrez votre navigateur et allez sur :
 
 ---
 
-## 🤝 Contribution
+## Contribution
 
 Les contributions sont les bienvenues !
 
@@ -182,7 +182,7 @@ Les contributions sont les bienvenues !
 
 ---
 
-## 📝 Licence
+## Licence
 
 Projet open-source sous licence **MIT**.
 Vous êtes libre de l’utiliser, le modifier et le redistribuer.
