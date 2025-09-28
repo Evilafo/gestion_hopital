@@ -72,7 +72,7 @@ git --version
 ### 1. Cloner le dépôt
 
 ```bash
-git clone https://github.com/<TON-UTILISATEUR>/hospital.git
+git clone https://github.com/evilafo/gestion_hopital.git
 cd hospital
 ```
 
