@@ -1,0 +1,116 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Espace Dr. {{ current_user.nom }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Espace Médecin - Dr. {{ current_user.nom }}</h1>
+<p class="lead">Spécialité : <strong>{{ current_user.specialite }}</strong></p>
+
+<ul class="nav nav-tabs mb-4" id="doctorTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="day-queue-tab" data-bs-toggle="tab" data-bs-target="#day-queue" type="button" role="tab">Patients du Jour</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="schedule-tab" data-bs-toggle="tab" data-bs-target="#schedule" type="button" role="tab">Mon Emploi du Temps</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="consultation-tab" data-bs-toggle="tab" data-bs-target="#consultation" type="button" role="tab">Consultations Passées</button>
+    </li>
+</ul>
+
+<div class="tab-content" id="doctorTabsContent">
+    <div class="tab-pane fade show active" id="day-queue" role="tabpanel" aria-labelledby="day-queue-tab">
+        <h3 class="mb-3">Liste de Consultation ({{ date_du_jour.strftime('%d/%m/%Y') }})</h3>
+        <table class="table table-bordered table-hover">
+            <thead class="table-info">
+                <tr>
+                    <th>Heure</th>
+                    <th>Patient</th>
+                    <th>Statut File</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for patient_queue in today_patients %}
+                <tr>
+                    <td>{{ patient_queue.heure_rendezvous.strftime('%H:%M') }}</td>
+                    <td><a href="{{ url_for('view_patient_dossier', patient_id=patient_queue.patient_id) }}">{{ patient_queue.patient_nom }}</a></td>
+                    <td>
+                        <span class="badge 
+                            {% if patient_queue.statut_file == 'En Attente' %}bg-warning text-dark
+                            {% elif patient_queue.statut_file == 'En Consultation' %}bg-success
+                            {% else %}bg-secondary{% endif %}">
+                            {{ patient_queue.statut_file }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if patient_queue.statut_file == 'En Attente' %}
+                            <a href="{{ url_for('start_consultation', queue_id=patient_queue.id) }}" class="btn btn-sm btn-success">Commencer la consultation</a>
+                        {% elif patient_queue.statut_file == 'En Consultation' %}
+                            <a href="{{ url_for('end_consultation', queue_id=patient_queue.id) }}" class="btn btn-sm btn-info">Terminer la consultation</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center">Aucun rendez-vous prévu pour aujourd'hui.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="tab-pane fade" id="schedule" role="tabpanel" aria-labelledby="schedule-tab">
+        <h3 class="mb-3">Gestion des Créneaux</h3>
+        <a href="{{ url_for('add_slot') }}" class="btn btn-primary mb-3">Ajouter un nouveau Créneau</a>
+        
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Heure Début</th>
+                    <th>Heure Fin</th>
+                    <th>Statut</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for slot in future_slots %}
+                <tr>
+                    <td>{{ slot.date.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ slot.heure_debut.strftime('%H:%M') }}</td>
+                    <td>{{ slot.heure_fin.strftime('%H:%M') }}</td>
+                    <td>
+                        <span class="badge {% if slot.disponible %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ "Libre" if slot.disponible else "Réservé" }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if slot.disponible %}
+                            <a href="{{ url_for('delete_slot', slot_id=slot.id) }}" class="btn btn-sm btn-outline-danger">Supprimer</a>
+                        {% else %}
+                            <button class="btn btn-sm btn-secondary" disabled>Réservé</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="tab-pane fade" id="consultation" role="tabpanel" aria-labelledby="consultation-tab">
+        <h3 class="mb-3">Historique de mes Consultations</h3>
+        <div class="alert alert-warning">
+            <strong>Note:</strong> L'ajout des dossiers médicaux complets n'est pas inclus dans le périmètre initial, mais cet historique en est la base.
+        </div>
+        <ul class="list-group">
+            {% for old_rv in past_appointments %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                {{ old_rv.date.strftime('%d/%m/%Y') }} - {{ old_rv.patient_nom }}
+                <span class="badge bg-secondary">Terminé</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

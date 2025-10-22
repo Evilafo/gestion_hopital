@@ -1,0 +1,80 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}File d'Attente du Jour{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">File d'Attente pour le {{ date_du_jour }}</h1>
+
+<ul class="nav nav-tabs mb-4" id="doctorTabs" role="tablist">
+    {% for doc in medecins_du_jour %}
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ doc.id }}" data-bs-toggle="tab" data-bs-target="#content-{{ doc.id }}" type="button" role="tab">{{ doc.nom }} ({{ doc.specialite }})</button>
+    </li>
+    {% endfor %}
+</ul>
+
+<div class="tab-content" id="doctorTabsContent">
+    {% for doc in medecins_du_jour %}
+    <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="content-{{ doc.id }}" role="tabpanel" aria-labelledby="tab-{{ doc.id }}">
+        
+        <h3>Patients pour Dr. {{ doc.nom }} - Salle : <strong>{{ doc.salle_ref.numero if doc.salle_ref else 'Non assignée' }}</strong></h3>
+
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>Heure Prévue</th>
+                    <th>Patient</th>
+                    <th>Statut</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in file_attente[doc.id] %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ item.heure_rendezvous }}</td>
+                    <td><a href="{{ url_for('view_patient_dossier', patient_id=item.patient_id) }}">{{ item.patient_nom }}</a></td>
+                    <td>
+                        <span class="badge 
+                            {% if item.statut == 'En Attente' %}bg-warning text-dark
+                            {% elif item.statut == 'En Consultation' %}bg-success
+                            {% else %}bg-secondary{% endif %}">
+                            {{ item.statut }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if item.statut == 'En Attente' %}
+                        <a href="{{ url_for('call_patient', file_id=item.id) }}" class="btn btn-sm btn-success">Appeler</a>
+                        {% elif item.statut == 'En Consultation' %}
+                        <a href="{{ url_for('finish_consultation', file_id=item.id) }}" class="btn btn-sm btn-info">Terminer</a>
+                        {% endif %}
+                        <a href="{{ url_for('mark_absent', file_id=item.id) }}" class="btn btn-sm btn-danger">Absent</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">Aucun patient en file d'attente pour ce médecin.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Optionnel : Script pour rafraîchir la liste toutes les minutes sans rechargement complet de la page
+// Utile pour la gestion dynamique de la file d'attente
+/*
+$(document).ready(function() {
+    setInterval(function() {
+        // Logique AJAX pour récupérer la liste mise à jour
+    }, 60000); // 60 secondes
+});
+*/
+</script>
+{% endblock %}

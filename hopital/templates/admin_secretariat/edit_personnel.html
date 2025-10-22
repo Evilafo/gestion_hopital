@@ -1,0 +1,105 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}{{ action }} un Membre du Personnel{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0">{{ action }} un Membre du Personnel</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="prenom" class="form-label">Prénom</label>
+                            <input type="text" class="form-control" id="prenom" name="prenom" value="{{ user.prenom if user else '' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="nom" class="form-label">Nom</label>
+                            <input type="text" class="form-control" id="nom" name="nom" value="{{ user.nom if user else '' }}" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ user.email if user else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="contact" class="form-label">Contact (Téléphone)</label>
+                        <input type="tel" class="form-control" id="contact" name="contact" value="{{ user.contact if user else '' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Rôle</label>
+                        <select class="form-select" id="role" name="role" required {% if user and user.role == 'admin' %}disabled{% endif %} onchange="toggleDoctorFields()">
+                            <option value="medecin" {% if user and user.role == 'medecin' %}selected{% endif %}>Médecin</option>
+                            <option value="secretaire" {% if user and user.role == 'secretaire' %}selected{% endif %}>Secrétaire</option>
+                            {% if user and user.role == 'admin' %}
+                            <option value="admin" selected>Admin</option>
+                            {% endif %}
+                        </select>
+                        {% if user and user.role == 'admin' %}
+                        <small class="form-text text-muted">Le rôle d'un administrateur ne peut pas être modifié.</small>
+                        {% endif %}
+                    </div>
+
+                    <div id="doctor-fields" style="display: {% if user and user.role == 'medecin' %}block{% else %}none{% endif %};">
+                        <div class="mb-3">
+                            <label for="specialite" class="form-label">Spécialité</label>
+                            <input type="text" class="form-control" id="specialite" name="specialite" value="{{ user.specialite if user else '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="salle_id" class="form-label">Salle Assignée</label>
+                            <select class="form-select" id="salle_id" name="salle_id">
+                                <option value="">Aucune</option>
+                                {% for salle in salles %}
+                                <option value="{{ salle.id }}" {% if user and user.salle_id == salle.id %}selected{% endif %}>
+                                    {{ salle.nom }} ({{ salle.numero }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Mot de passe</label>
+                        <input type="password" class="form-control" id="password" name="password" {% if action == 'Ajouter' %}required{% endif %}>
+                        {% if action == 'Modifier' %}
+                        <small class="form-text text-muted">Laissez vide pour ne pas changer le mot de passe.</small>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('manage_personnel') }}" class="btn btn-secondary">Annuler</a>
+                        <button type="submit" class="btn btn-primary">{{ action }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleDoctorFields() {
+    const roleSelect = document.getElementById('role');
+    const doctorFields = document.getElementById('doctor-fields');
+    const specialiteInput = document.getElementById('specialite');
+
+    if (roleSelect.value === 'medecin') {
+        doctorFields.style.display = 'block';
+        specialiteInput.required = true;
+    } else {
+        doctorFields.style.display = 'none';
+        specialiteInput.required = false;
+    }
+}
+
+// Appeler la fonction au chargement de la page pour définir l'état initial
+document.addEventListener('DOMContentLoaded', function() {
+    toggleDoctorFields();
+});
+</script>
+{% endblock %}

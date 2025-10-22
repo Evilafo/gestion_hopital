@@ -1,0 +1,111 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Gestion des Patients{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Gestion des Patients</h1>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Total des Patients</h5>
+                <p class="card-text">{{ patients|length }} patients enregistrés</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <input type="text" class="form-control" id="searchPatients" placeholder="Rechercher un patient...">
+    </div>
+    <div class="col-md-6">
+        <button class="btn btn-primary" onclick="exportPatients()">Exporter la liste</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h4>Liste des Patients</h4>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped" id="patientsTable">
+                <thead>
+                    <tr>
+                        <th>Nom</th>
+                        <th>Prénom</th>
+                        <th>Email</th>
+                        <th>Téléphone</th>
+                        <th>Date de naissance</th>
+                        <th>Âge</th>
+                        <th>Inscrit le</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for patient in patients %}
+                    <tr>
+                        <td>{{ patient.nom }}</td>
+                        <td>{{ patient.prenom }}</td>
+                        <td>{{ patient.email }}</td>
+                        <td>{{ patient.contact or '-' }}</td>
+                        <td>
+                            {% if patient.date_naissance %}
+                                {{ patient.date_naissance.strftime('%d/%m/%Y') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if patient.date_naissance %}
+                                {{ patient.age }} ans
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ patient.created_at.strftime('%d/%m/%Y') if patient.created_at else '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('view_patient_dossier', patient_id=patient.id) }}" 
+                               class="btn btn-sm btn-outline-info">Dossier</a>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editPatient({{ patient.id }})">Modifier</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Retour au Dashboard</a>
+</div>
+
+<script>
+// Fonction de recherche en temps réel
+document.getElementById('searchPatients').addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    const tableRows = document.querySelectorAll('#patientsTable tbody tr');
+    
+    tableRows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+function exportPatients() {
+    window.location.href = "{{ url_for('export_patients') }}";
+}
+
+function editPatient(patientId) {
+    // Placeholder pour l'édition
+    alert('Fonction d\'édition à implémenter pour le patient ID: ' + patientId);
+}
+</script>
+{% endblock %}

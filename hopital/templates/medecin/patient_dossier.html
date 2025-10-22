@@ -1,0 +1,85 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Dossier Patient - {{ patient.prenom }} {{ patient.nom }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4>Informations Patient</h4>
+            </div>
+            <div class="card-body">
+                <p><strong>Nom:</strong> {{ patient.nom }}</p>
+                <p><strong>Prénom:</strong> {{ patient.prenom }}</p>
+                <p><strong>Email:</strong> {{ patient.email }}</p>
+                <p><strong>Téléphone:</strong> {{ patient.contact or 'Non renseigné' }}</p>
+                <p><strong>Date de naissance:</strong> 
+                   {% if patient.date_naissance %}
+                       {{ patient.date_naissance.strftime('%d/%m/%Y') }}
+                   {% else %}
+                       Non renseignée
+                   {% endif %}
+                </p>
+                <p><strong>Âge:</strong> 
+                   {% if patient.date_naissance %}
+                       {{ patient.age }} ans
+                   {% else %}
+                       Non calculable
+                   {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h4>Historique Médical</h4>
+            </div>
+            <div class="card-body">
+                {% if historique %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Heure</th>
+                                <th>Médecin</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rv, medecin in historique %}
+                            <tr>
+                                <td>{{ rv.date.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ rv.heure.strftime('%H:%M') }}</td>
+                                <td>Dr. {{ medecin.nom }} {{ medecin.prenom }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if rv.statut == 'Confirmé' %}bg-primary
+                                        {% elif rv.statut == 'Terminé' %}bg-success
+                                        {% elif rv.statut == 'Annulé' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ rv.statut }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    Aucun historique de rendez-vous trouvé pour ce patient.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Retour au Dashboard</a>
+</div>
+{% endblock %}

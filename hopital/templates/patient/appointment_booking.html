@@ -1,0 +1,71 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Prendre Rendez-vous{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Prendre un Rendez-vous</h1>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card p-3 shadow-sm">
+            <h4>1. Choisir une Spécialité</h4>
+            <form id="speciality-form" method="GET" action="{{ url_for('book_appointment') }}">
+                <div class="mb-3">
+                    <label for="speciality" class="form-label">Spécialité Médicale</label>
+                    <select class="form-select" id="speciality" name="speciality" required onchange="this.form.submit()">
+                        <option value="">Sélectionnez...</option>
+                        {% for spec in specialities %}
+                            <option value="{{ spec }}" {% if selected_speciality == spec %}selected{% endif %}>{{ spec }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+            
+            {% if selected_speciality %}
+                <h4>2. Choisir un Médecin</h4>
+                <div class="list-group">
+                    {% for doctor in doctors_by_speciality %}
+                        <a href="{{ url_for('book_appointment', speciality=selected_speciality, doctor_id=doctor.id) }}" 
+                           class="list-group-item list-group-item-action {% if selected_doctor and selected_doctor.id == doctor.id %}active{% endif %}">
+                            Dr. {{ doctor.nom }} {{ doctor.prenom }}
+                        </a>
+                    {% else %}
+                        <p class="mt-3 text-danger">Aucun médecin disponible dans cette spécialité.</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        {% if selected_doctor %}
+        <div class="card p-3 shadow-lg">
+            <h4>3. Choisir un Créneau pour Dr. {{ selected_doctor.nom }}</h4>
+            <p class="lead text-muted">{{ selected_doctor.specialite }}</p>
+
+            {% if available_slots %}
+            <div class="row g-2 mt-3">
+                {% for slot in available_slots %}
+                <div class="col-auto">
+                    <form method="POST" action="{{ url_for('confirm_appointment') }}">
+                        <input type="hidden" name="slot_id" value="{{ slot.id }}">
+                        <button type="submit" class="btn btn-outline-primary btn-sm">
+                            {{ slot.date.strftime('%d/%m') }} à {{ slot.heure_debut.strftime('%H:%M') }}
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="mt-3 alert alert-info">Aucun créneau disponible pour ce médecin. Veuillez choisir une autre spécialité ou revenir plus tard.</p>
+            {% endif %}
+        </div>
+        {% elif selected_speciality and not doctors_by_speciality %}
+            {% else %}
+        <div class="alert alert-info p-5 text-center">
+            Veuillez choisir une spécialité puis un médecin pour voir les créneaux disponibles.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

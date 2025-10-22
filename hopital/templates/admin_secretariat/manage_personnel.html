@@ -1,0 +1,87 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Gestion du Personnel{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Gestion du Personnel</h1>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h5 class="card-title">Médecins</h5>
+                <p class="card-text">{{ personnel|selectattr('role', 'equalto', 'medecin')|list|length }} médecins enregistrés</p>
+                <a href="{{ url_for('add_personnel', role='medecin') }}" class="btn btn-light btn-sm">Ajouter un médecin</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h5 class="card-title">Personnel Administratif</h5>
+                <p class="card-text">{{ personnel|selectattr('role', 'equalto', 'secretaire')|list|length }} secrétaires enregistrés</p>
+                <a href="{{ url_for('add_personnel', role='secretaire') }}" class="btn btn-dark btn-sm">Ajouter un membre</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h4>Liste du Personnel</h4>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nom</th>
+                        <th>Prénom</th>
+                        <th>Email</th>
+                        <th>Rôle</th>
+                        <th>Spécialité</th>
+                        <th>Salle</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for person in personnel %}
+                    <tr>
+                        <td>{{ person.nom }}</td>
+                        <td>{{ person.prenom }}</td>
+                        <td>{{ person.email }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if person.role == 'medecin' %}bg-info
+                                {% elif person.role == 'secretaire' %}bg-warning text-dark
+                                {% elif person.role == 'admin' %}bg-danger
+                                {% else %}bg-secondary{% endif %}">
+                                {{ person.role.capitalize() }}
+                            </span>
+                        </td>
+                        <td>{{ person.specialite or '-' }}</td>
+                        <td>
+                            {% if person.salle_ref %}
+                                Salle {{ person.salle_ref.numero }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('edit_personnel', user_id=person.id) }}" class="btn btn-sm btn-outline-primary">Modifier</a>
+                            {% if person.role != 'admin' %}
+                                <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Retour au Dashboard</a>
+</div>
+{% endblock %}

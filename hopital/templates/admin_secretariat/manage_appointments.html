@@ -1,0 +1,271 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Gestion des Rendez-vous{% endblock %}
+
+{% block content %}
+<!-- Titre de la page -->
+<h1 class="mb-4">Gestion des Rendez-vous</h1>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="input-group">
+            <select class="form-select" id="statusFilter">
+                <option value="">Tous les statuts</option>
+                <option value="Confirmé">Confirmé</option>
+                <option value="Terminé">Terminé</option>
+                <option value="Annulé">Annulé</option>
+            </select>
+            <input type="date" class="form-control" id="dateFilter">
+            <button class="btn btn-outline-secondary" onclick="filterAppointments()">Filtrer</button>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <button class="btn btn-success" onclick="exportAppointments()">Exporter</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAppointmentModal">Nouveau RDV</button>
+    </div>
+</div>
+
+<!-- Carte contenant la table des rendez-vous -->
+<div class="card">
+    <div class="card-header">
+        <h4>Liste des Rendez-vous</h4>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped" id="appointmentsTable">
+                <!-- En-tête de la table -->
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Date</th>
+                        <th>Heure</th>
+                        <th>Patient</th>
+                        <th>Médecin</th>
+                        <th>Statut</th>
+                        <th>Créé le</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Boucle sur la liste des rendez-vous passée par le backend -->
+                    {% for appointment, patient, medecin in appointments %}
+                    <tr>
+                        <td>{{ appointment.id }}</td>
+                        <td>{{ appointment.date.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ appointment.heure.strftime('%H:%M') }}</td>
+                        <td>{{ patient.prenom }} {{ patient.nom }}</td>
+                        <td>Dr. {{ medecin.prenom }} {{ medecin.nom }}</td>
+                        <!-- Affiche un badge de couleur différente selon le statut du RDV -->
+                        <td>
+                            <span class="badge 
+                                {% if appointment.statut == 'Confirmé' %}bg-primary
+                                {% elif appointment.statut == 'Terminé' %}bg-success
+                                {% elif appointment.statut == 'Annulé' %}bg-danger
+                                {% else %}bg-secondary{% endif %}">
+                                {{ appointment.statut }}
+                            </span>
+                        </td>
+                        <td>{{ appointment.created_at.strftime('%d/%m/%Y %H:%M') if appointment.created_at else '-' }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <!-- Les actions (Modifier, Annuler) ne sont disponibles que si le RDV est 'Confirmé' -->
+                                <button class="btn btn-outline-info" onclick="viewAppointment({{ appointment.id }})">Voir</button>
+                                {% if appointment.statut == 'Confirmé' %}
+                                    <button class="btn btn-outline-warning" onclick="editAppointment({{ appointment.id }})">Modifier</button>
+                                    <button class="btn btn-outline-danger" onclick="cancelAdminAppointment({{ appointment.id }})">Annuler</button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Fenêtre modale pour ajouter un nouveau rendez-vous -->
+<div class="modal fade" id="addAppointmentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau Rendez-vous</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <!-- Formulaire pour créer un nouveau RDV -->
+            <form id="addAppointmentForm" method="POST">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="patientSelect" class="form-label">Patient</label>
+                                <select class="form-select" id="patientSelect" name="patient_id" required>
+                                    <option value="">Sélectionner un patient</option>
+                                    <!-- Les options seront chargées dynamiquement via JavaScript -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="medecinSelect" class="form-label">Médecin</label>
+                                <select class="form-select" id="medecinSelect" name="medecin_id" required onchange="updateAvailableSlots()">
+                                    <option value="">Sélectionner un médecin</option>
+                                    <!-- Les options seront chargées dynamiquement -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="appointmentDate" class="form-label">Date</label>
+                                <input type="date" class="form-control" id="appointmentDate" name="date" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="appointmentTime" class="form-label">Heure</label>
+                                <input type="time" class="form-control" id="appointmentTime" name="heure" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Créer le rendez-vous</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Retour au Dashboard</a>
+</div>
+
+<!-- Section pour le code JavaScript spécifique à cette page -->
+<script>
+// Attend que le DOM soit entièrement chargé avant d'exécuter le script
+document.addEventListener('DOMContentLoaded', function() {
+    const addAppointmentModal = document.getElementById('addAppointmentModal');
+    
+    // Événement déclenché lorsque la modale d'ajout est sur le point de s'afficher
+    addAppointmentModal.addEventListener('show.bs.modal', function () {
+        // Charge la liste des patients et des médecins depuis l'API
+        fetch("{{ url_for('api_users_for_appointment') }}")
+            .then(response => response.json())
+            .then(data => {
+                const patientSelect = document.getElementById('patientSelect');
+                const medecinSelect = document.getElementById('medecinSelect');
+                // Vide les listes déroulantes avant de les remplir
+                patientSelect.innerHTML = '<option value="">Sélectionner un patient</option>';
+                medecinSelect.innerHTML = '<option value="">Sélectionner un médecin</option>';
+                // Remplit les listes avec les données reçues
+                data.patients.forEach(p => patientSelect.innerHTML += `<option value="${p.id}">${p.text}</option>`);
+                data.medecins.forEach(m => medecinSelect.innerHTML += `<option value="${m.id}">${m.text}</option>`);
+            });
+    });
+
+    // Initialise le filtre de date à la date d'aujourd'hui par défaut
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('dateFilter').value = today;
+});
+
+// Fonction pour filtrer les rendez-vous affichés dans la table
+function filterAppointments() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const dateFilter = document.getElementById('dateFilter').value;
+    const tableRows = document.querySelectorAll('#appointmentsTable tbody tr');
+    
+    tableRows.forEach(row => {
+        let showRow = true;
+        
+        // 1. Filtrage par statut
+        if (statusFilter) {
+            const statusCell = row.querySelector('span.badge');
+            if (!statusCell || !statusCell.textContent.includes(statusFilter)) {
+                showRow = false;
+            }
+        }
+        // 2. Filtrage par date (si la ligne est toujours visible)
+        // Filtrage par date
+        if (dateFilter && showRow) {
+            const dateCell = row.cells[1]; // Colonne date
+            const cellDate = dateCell.textContent.trim().split('/').reverse().join('-');
+            if (!cellDate.includes(dateFilter.split('-')[0])) { // Comparaison année
+                showRow = false;
+            }
+        }
+        
+        // Affiche ou masque la ligne en fonction des filtres
+        row.style.display = showRow ? '' : 'none';
+    });
+}
+
+// Fonction pour déclencher l'exportation des rendez-vous en CSV
+function exportAppointments() {
+    window.location.href = "{{ url_for('export_appointments') }}";
+}
+
+// Fonctions placeholder pour voir et modifier un RDV
+function viewAppointment(appointmentId) {
+    alert('Voir le rendez-vous ID: ' + appointmentId);
+}
+
+function editAppointment(appointmentId) {
+    // Idéalement, ceci ouvrirait une modale pré-remplie avec les infos du RDV
+    alert('Modifier le rendez-vous ID: ' + appointmentId);
+}
+
+// Fonction pour annuler un rendez-vous depuis le tableau de bord admin
+function cancelAdminAppointment(appointmentId) {
+    if (confirm('Êtes-vous sûr de vouloir annuler ce rendez-vous ?')) {
+        // Envoie une requête POST à l'API d'annulation
+        fetch(`/admin/cancel-appointment/${appointmentId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // Pour la protection CSRF si vous l'ajoutez plus tard
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload(); // Recharge la page pour afficher le statut mis à jour
+            } else {
+                alert('Erreur lors de l\'annulation: ' + (data.error || 'Erreur inconnue'));
+            }
+        });
+    }
+}
+
+// Gère la soumission du formulaire d'ajout de rendez-vous
+document.getElementById('addAppointmentForm').addEventListener('submit', function(e) {
+    e.preventDefault(); // Empêche le rechargement de la page par défaut
+    // Récupère les données du formulaire
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+
+    // Envoie les données à l'API d'ajout de RDV
+    fetch("{{ url_for('add_appointment_admin') }}", { // Utilise url_for pour une URL dynamique et sûre
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            // Si succès, ferme la modale et recharge la page
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addAppointmentModal'));
+            modal.hide();
+            // Recharger la page est une solution simple pour voir le nouveau RDV.
+            window.location.reload();
+        } else {
+            alert('Erreur: ' + (result.error || 'Impossible d\'ajouter le rendez-vous.'));
+        }
+    });
+});
+</script>
+{% endblock %}

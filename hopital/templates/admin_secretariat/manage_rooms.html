@@ -1,0 +1,139 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Gestion des Salles{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Gestion des Salles de Consultation</h1>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRoomModal">
+            Ajouter une nouvelle salle
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    {% for salle in salles %}
+    <div class="col-md-4 mb-4">
+        <div class="card {% if salle.disponible %}border-success{% else %}border-warning{% endif %}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ salle.nom or 'Salle ' + salle.numero }}</h5>
+                <span class="badge {% if salle.disponible %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                    {{ 'Disponible' if salle.disponible else 'Occupée' }}
+                </span>
+            </div>
+            <div class="card-body">
+                <p><strong>Numéro:</strong> {{ salle.numero }}</p>
+                {% if salle.medecins %}
+                    <p><strong>Médecin assigné:</strong> 
+                        {% for medecin in salle.medecins %}
+                            Dr. {{ medecin.nom }} {{ medecin.prenom }}{{ ', ' if not loop.last }}
+                        {% endfor %}
+                    </p>
+                {% else %}
+                    <p><strong>Médecin assigné:</strong> Aucun</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-sm btn-outline-primary" onclick="editRoom({{ salle.id }})">Modifier</button>
+                {% if not salle.medecins %}
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteRoom({{ salle.id }}, this)">Supprimer</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+    {% if not salles %}
+    <div class="col-12">
+        <div class="alert alert-info text-center">
+            <h4>Aucune salle enregistrée</h4>
+            <p>Commencez par ajouter une première salle de consultation.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal pour ajouter une salle -->
+<div class="modal fade" id="addRoomModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajouter une nouvelle salle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addRoomForm" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="roomNumber" class="form-label">Numéro de salle</label>
+                        <input type="text" class="form-control" id="roomNumber" name="numero" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="roomName" class="form-label">Nom de la salle (optionnel)</label>
+                        <input type="text" class="form-control" id="roomName" name="nom">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Ajouter la salle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Retour au Dashboard</a>
+</div>
+
+<script>
+document.getElementById('addRoomForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);    
+    const data = {
+        numero: formData.get('numero'),
+        nom: formData.get('nom')
+    };
+
+    fetch("{{ url_for('add_room') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            window.location.reload();
+        } else {
+            alert('Erreur: ' + (result.error || 'Impossible d\'ajouter la salle.'));
+        }
+    });
+});
+
+function editRoom(roomId) {
+    alert('Fonction d\'édition à implémenter pour la salle ID: ' + roomId);
+}
+
+function deleteRoom(roomId, button) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette salle ?')) {
+        fetch(`/delete-room/${roomId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Supprimer la carte de la salle de l'interface
+                button.closest('.col-md-4').remove();
+                // Recharger la page pour voir le message flash
+                window.location.reload();
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible de supprimer la salle.'));
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
