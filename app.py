@@ -618,6 +618,32 @@ def edit_personnel(user_id):
     salles = Salle.query.all()
     return render_template('admin_secretariat/edit_personnel.html', action='Modifier', user=user_to_edit, salles=salles)
 
+@app.route('/delete-personnel/<int:user_id>', methods=['POST'])
+@login_required
+def delete_personnel(user_id):
+    """API pour supprimer un membre du personnel."""
+    if current_user.role != 'admin':
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('dashboard'))
+
+    user_to_delete = User.query.get_or_404(user_id)
+
+    if user_to_delete.id == current_user.id:
+        flash('Vous ne pouvez pas supprimer votre propre compte.', 'danger')
+        return redirect(url_for('manage_personnel'))
+
+    # Vérifier si le médecin a des rendez-vous
+    if user_to_delete.role == 'medecin':
+        if RendezVous.query.filter_by(medecin_id=user_id).first():
+            flash('Impossible de supprimer ce médecin car il a des rendez-vous associés.', 'danger')
+            return redirect(url_for('manage_personnel'))
+
+    db.session.delete(user_to_delete)
+    db.session.commit()
+
+    flash('Le membre du personnel a été supprimé avec succès.', 'success')
+    return redirect(url_for('manage_personnel'))
+
 @app.route('/manage-patients')
 @login_required
 def manage_patients():
