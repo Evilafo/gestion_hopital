@@ -1,0 +1,61 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Modifier Mon Profil{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white text-center rounded-top-3">
+                <h2>Modifier Mon Profil</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="nom" class="form-label">Nom</label>
+                        <input type="text" class="form-control" id="nom" name="nom" value="{{ current_user.nom }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prenom" class="form-label">Prénom</label>
+                        <input type="text" class="form-control" id="prenom" name="prenom" value="{{ current_user.prenom }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contact" class="form-label">Numéro de téléphone</label>
+                        <input type="tel" class="form-control" id="contact" name="contact" value="{{ current_user.contact or '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date_naissance" class="form-label">Date de naissance</label>
+                        <input type="date" class="form-control" id="date_naissance" name="date_naissance" 
+                               value="{{ current_user.date_naissance.strftime('%Y-%m-%d') if current_user.date_naissance else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" value="{{ current_user.email }}" disabled>
+                        <small class="text-muted">L'email ne peut pas être modifié.</small>
+                    </div>
+
+                    <details class="mb-3">
+                        <summary class="text-primary" style="cursor: pointer;">Changer le mot de passe</summary>
+                        <div class="p-3 border rounded mt-2">
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Nouveau mot de passe</label>
+                                <input type="password" class="form-control" id="password" name="password">
+                                <small class="text-muted">Laissez vide pour ne pas changer.</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password_confirm" class="form-label">Confirmer le nouveau mot de passe</label>
+                                <input type="password" class="form-control" id="password_confirm" name="password_confirm">
+                            </div>
+                        </div>
+                    </details>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Mettre à jour</button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Annuler</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

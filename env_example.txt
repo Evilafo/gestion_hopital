@@ -1,0 +1,12 @@
+# Clé secrète Flask - Doit être une chaîne de caractères longue et unique
+SECRET_KEY=votre_cle_secrete_tres_longue_et_unique
+
+# Configuration de l'environnement (development, production)
+FLASK_ENV=development
+DEBUG=True
+
+# Configuration de la base de données
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=votre_mot_de_passe
+DB_NAME=hopital_db

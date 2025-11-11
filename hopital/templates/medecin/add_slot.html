@@ -1,0 +1,57 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Ajouter un Créneau{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-lg">
+            <div class="card-header bg-info text-white text-center rounded-top-3">
+                <h2>Ajouter un Nouveau Créneau</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="date" name="date" required min="{{ today }}">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="heure_debut" class="form-label">Heure de début</label>
+                                <input type="time" class="form-control" id="heure_debut" name="heure_debut" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="heure_fin" class="form-label">Heure de fin</label>
+                                <input type="time" class="form-control" id="heure_fin" name="heure_fin" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <small>
+                            <strong>Note:</strong> Assurez-vous que le créneau ne chevauche pas avec vos autres créneaux existants.
+                            Les créneaux sont généralement de 30 minutes.
+                        </small>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-info">Ajouter le Créneau</button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Retour au Dashboard</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser la date à aujourd'hui
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date').value = today;
+});
+</script>
+{% endblock %}

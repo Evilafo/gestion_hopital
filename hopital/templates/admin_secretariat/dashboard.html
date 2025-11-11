@@ -1,0 +1,60 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Dashboard Secrétariat{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Dashboard Secrétariat</h1>
+<p class="lead">Bienvenue, {{ current_user.prenom }} ! Gérez ici les ressources de l'hôpital.</p>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card text-center bg-info text-white h-100">
+            <div class="card-body rounded-3">
+                <h5 class="card-title display-4">Personnel</h5>
+                <p class="card-text">Gérez les médecins, secrétaires et administrateurs.</p>
+                <a href="{{ url_for('manage_personnel') }}" class="btn btn-light mt-3">Gérer</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card text-center bg-success text-white h-100 rounded-3">
+            <div class="card-body">
+                <h5 class="card-title display-4">Patients</h5>
+                <p class="card-text">Recherchez et consultez les dossiers patients.</p>
+                <a href="{{ url_for('manage_patients') }}" class="btn btn-light mt-3">Gérer</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card text-center bg-warning text-dark h-100 rounded-3">
+            <div class="card-body">
+                <h5 class="card-title display-4">Salles</h5>
+                <p class="card-text">Supervisez l'état des salles de consultation.</p>
+                <a href="{{ url_for('manage_rooms') }}" class="btn btn-light mt-3">Gérer</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card text-center bg-danger text-white h-100 rounded-3">
+            <div class="card-body">
+                <h5 class="card-title display-4">Rendez-vous</h5>
+                <p class="card-text">Planifiez, modifiez et consultez les rendez-vous.</p>
+                <a href="{{ url_for('manage_appointments') }}" class="btn btn-light mt-3">Gérer</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card text-center bg-primary text-white h-100 rounded-3">
+            <div class="card-body">
+                <h5 class="card-title display-4">File d'Attente</h5>
+                <p class="card-text">Gérez l'arrivée et le flux des patients du jour.</p>
+                <a href="{{ url_for('queue_management') }}" class="btn btn-light mt-3">Accéder à la File</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

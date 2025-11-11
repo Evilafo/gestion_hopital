@@ -1,0 +1,201 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Gestion des Rendez-vous{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Gestion des Rendez-vous</h1>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="input-group">
+            <select class="form-select" id="statusFilter">
+                <option value="">Tous les statuts</option>
+                <option value="Confirmé">Confirmé</option>
+                <option value="Terminé">Terminé</option>
+                <option value="Annulé">Annulé</option>
+            </select>
+            <input type="date" class="form-control" id="dateFilter">
+            <button class="btn btn-outline-secondary" onclick="filterAppointments()">Filtrer</button>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <button class="btn btn-success" onclick="exportAppointments()">Exporter</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAppointmentModal">Nouveau RDV</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header rounded-top-3">
+        <h4>Liste des Rendez-vous</h4>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped" id="appointmentsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Date</th>
+                        <th>Heure</th>
+                        <th>Patient</th>
+                        <th>Médecin</th>
+                        <th>Statut</th>
+                        <th>Créé le</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appointment, patient_nom, medecin_nom in appointments %}
+                    <tr>
+                        <td>{{ appointment.id }}</td>
+                        <td>{{ appointment.date.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ appointment.heure.strftime('%H:%M') }}</td>
+                        <td>{{ patient_nom }}</td>
+                        <td>{{ medecin_nom }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if appointment.statut == 'Confirmé' %}bg-primary
+                                {% elif appointment.statut == 'Terminé' %}bg-success
+                                {% elif appointment.statut == 'Annulé' %}bg-danger
+                                {% else %}bg-secondary{% endif %}">
+                                {{ appointment.statut }}
+                            </span>
+                        </td>
+                        <td>{{ appointment.created_at.strftime('%d/%m/%Y %H:%M') if appointment.created_at else '-' }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-info" onclick="viewAppointment({{ appointment.id }})">Voir</button>
+                                {% if appointment.statut == 'Confirmé' %}
+                                    <button class="btn btn-outline-warning" onclick="editAppointment({{ appointment.id }})">Modifier</button>
+                                    <button class="btn btn-outline-danger" onclick="cancelAppointment({{ appointment.id }})">Annuler</button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour ajouter un rendez-vous -->
+<div class="modal fade" id="addAppointmentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau Rendez-vous</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addAppointmentForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="patientSelect" class="form-label">Patient</label>
+                                <select class="form-select" id="patientSelect" name="patient_id" required>
+                                    <option value="">Sélectionner un patient</option>
+                                    <!-- Les options seront chargées dynamiquement -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="medecinSelect" class="form-label">Médecin</label>
+                                <select class="form-select" id="medecinSelect" name="medecin_id" required>
+                                    <option value="">Sélectionner un médecin</option>
+                                    <!-- Les options seront chargées dynamiquement -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="appointmentDate" class="form-label">Date</label>
+                                <input type="date" class="form-control" id="appointmentDate" name="date" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="appointmentTime" class="form-label">Heure</label>
+                                <input type="time" class="form-control" id="appointmentTime" name="heure" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Créer le rendez-vous</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Retour au Dashboard</a>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser la date à aujourd'hui
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('dateFilter').value = today;
+});
+
+function filterAppointments() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const dateFilter = document.getElementById('dateFilter').value;
+    const tableRows = document.querySelectorAll('#appointmentsTable tbody tr');
+    
+    tableRows.forEach(row => {
+        let showRow = true;
+        
+        // Filtrage par statut
+        if (statusFilter) {
+            const statusCell = row.querySelector('span.badge');
+            if (!statusCell || !statusCell.textContent.includes(statusFilter)) {
+                showRow = false;
+            }
+        }
+        
+        // Filtrage par date
+        if (dateFilter && showRow) {
+            const dateCell = row.cells[1]; // Colonne date
+            const cellDate = dateCell.textContent.trim().split('/').reverse().join('-');
+            if (!cellDate.includes(dateFilter.split('-')[0])) { // Comparaison année
+                showRow = false;
+            }
+        }
+        
+        row.style.display = showRow ? '' : 'none';
+    });
+}
+
+function exportAppointments() {
+    alert('Fonction d\'exportation à implémenter');
+}
+
+function viewAppointment(appointmentId) {
+    alert('Voir le rendez-vous ID: ' + appointmentId);
+}
+
+function editAppointment(appointmentId) {
+    alert('Modifier le rendez-vous ID: ' + appointmentId);
+}
+
+function cancelAppointment(appointmentId) {
+    if (confirm('Êtes-vous sûr de vouloir annuler ce rendez-vous ?')) {
+        alert('Annuler le rendez-vous ID: ' + appointmentId);
+    }
+}
+
+document.getElementById('addAppointmentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    alert('Fonction d\'ajout de rendez-vous à implémenter côté serveur');
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('addAppointmentModal'));
+    modal.hide();
+});
+</script>
+{% endblock %}
