@@ -4,6 +4,10 @@ Script de démarrage pour l'application de gestion d'hôpital
 """
 
 import os
+from dotenv import load_dotenv
+
+# Charge les variables d'environnement depuis le fichier .env
+load_dotenv()
 from app import app, db, User, Salle
 
 # --- Fonctions d'initialisation des données ---

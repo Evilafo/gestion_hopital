@@ -589,7 +589,7 @@ def mark_absent(file_id):
 @login_required
 def manage_personnel():
     """Page pour gérer le personnel (médecins, secrétaires, admins). Réservé aux admins."""
-    if current_user.role not in ['admin']:
+    if current_user.role not in ['secretaire', 'admin']:
         flash('Accès non autorisé', 'danger')
         return redirect(url_for('dashboard'))
     
@@ -736,6 +736,32 @@ def edit_personnel(user_id):
     salles = Salle.query.all()
     return render_template('admin_secretariat/edit_personnel.html', action='Modifier', user=user_to_edit, salles=salles)
 
+@app.route('/delete-personnel/<int:user_id>', methods=['POST'])
+@login_required
+def delete_personnel(user_id):
+    """API pour supprimer un membre du personnel."""
+    if current_user.role != 'admin':
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('dashboard'))
+
+    user_to_delete = User.query.get_or_404(user_id)
+
+    if user_to_delete.id == current_user.id:
+        flash('Vous ne pouvez pas supprimer votre propre compte.', 'danger')
+        return redirect(url_for('manage_personnel'))
+
+    # Vérifier si le médecin a des rendez-vous
+    if user_to_delete.role == 'medecin':
+        if RendezVous.query.filter_by(medecin_id=user_id).first():
+            flash('Impossible de supprimer ce médecin car il a des rendez-vous associés.', 'danger')
+            return redirect(url_for('manage_personnel'))
+
+    db.session.delete(user_to_delete)
+    db.session.commit()
+
+    flash('Le membre du personnel a été supprimé avec succès.', 'success')
+    return redirect(url_for('manage_personnel'))
+
 @app.route('/manage-patients')
 @login_required
 def manage_patients():
@@ -746,6 +772,35 @@ def manage_patients():
     
     patients = User.query.filter_by(role='patient').all()
     return render_template('admin_secretariat/manage_patients.html', patients=patients)
+
+@app.route('/edit-patient/<int:patient_id>', methods=['GET', 'POST'])
+@login_required
+def edit_patient(patient_id):
+    """Page et logique pour modifier les informations d'un patient."""
+    if current_user.role not in ['secretaire', 'admin']:
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('dashboard'))
+
+    patient = User.query.get_or_404(patient_id)
+    if patient.role != 'patient':
+        flash('Utilisateur non valide.', 'danger')
+        return redirect(url_for('manage_patients'))
+
+    if request.method == 'POST':
+        patient.nom = request.form['nom']
+        patient.prenom = request.form['prenom']
+        patient.contact = request.form['contact']
+        if request.form['date_naissance']:
+            patient.date_naissance = datetime.strptime(request.form['date_naissance'], '%Y-%m-%d').date()
+        
+        if request.form.get('password'):
+            patient.set_password(request.form['password'])
+
+        db.session.commit()
+        flash('Les informations du patient ont été mises à jour.', 'success')
+        return redirect(url_for('manage_patients'))
+
+    return render_template('admin_secretariat/edit_patient.html', patient=patient)
 
 @app.route('/export/patients')
 @login_required

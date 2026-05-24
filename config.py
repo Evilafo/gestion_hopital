@@ -1,9 +1,4 @@
 import os
-from dotenv import load_dotenv
-
-# Charge les variables d'environnement depuis un fichier .env
-# C'est utile pour le développement local afin de ne pas exposer les secrets dans le code.
-load_dotenv()
 
 class Config:
     """Configuration de base, partagée par tous les environnements."""
@@ -13,7 +8,7 @@ class Config:
     # Chaîne de connexion à la base de données.
     # Utilise les variables d'environnement pour construire l'URI.
     # 'pymysql' est le driver Python pour se connecter à MySQL.
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or f"mysql+pymysql://{os.environ.get('DB_USER', 'root')}:{os.environ.get('DB_PASSWORD', 'Azerty1234')}@{os.environ.get('DB_HOST', 'localhost')}/{os.environ.get('DB_NAME', 'hopital_db')}"
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or f"mysql+pymysql://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASSWORD')}@{os.environ.get('DB_HOST')}/{os.environ.get('DB_NAME')}"
     # Désactive une fonctionnalité de Flask-SQLAlchemy qui n'est pas nécessaire et consomme des ressources.
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
