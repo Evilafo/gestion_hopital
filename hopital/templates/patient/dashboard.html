@@ -1,52 +1,72 @@
 {% extends 'layouts/base.html' %}
-
-{% block title %}Mon Espace Patient{% endblock %}
-
+{% from 'macros.html' import csrf_field, status_badge, post_btn %}
+{% block title %}Mon espace{% endblock %}
+{% block page_heading %}Bonjour {{ current_user.prenom }}{% endblock %}
 {% block content %}
-<h1 class="mb-4">Bienvenue, {{ current_user.prenom }} !</h1>
-<p class="lead">Gérez ici vos informations et vos rendez-vous.</p>
+{% if position %}
+<div class="alert alert-success d-flex justify-content-between align-items-center">
+    <div>
+        Aujourd’hui : {{ position.file.heure_rendezvous.strftime('%H:%M') }} —
+        statut {{ position.file.statut_file }}
+        {% if position.rang %} — vous êtes le n°{{ position.rang }} en attente.{% endif %}
+    </div>
+    <a class="btn btn-sm btn-outline-success" href="{{ url_for('ma_file') }}">Voir la file</a>
+</div>
+{% endif %}
 
 <div class="row g-4">
-    <div class="col-md-5">
-        <div class="card shadow-sm p-4 h-100 rounded-3">
-            <h4 class="card-title text-primary">Mon Dossier (Simplifié)</h4>
-            <p><strong>Nom:</strong> {{ current_user.nom }}</p>
-            <p><strong>Prénom:</strong> {{ current_user.prenom }}</p>
-            <p><strong>Date de Naissance:</strong> {{ current_user.date_naissance.strftime('%d/%m/%Y') }}</p>
-            <p><strong>Contact:</strong> {{ current_user.contact }}</p>
-            <a href="{{ url_for('edit_profile') }}" class="btn btn-sm btn-outline-secondary mt-3">Modifier mes informations</a>
+    <div class="col-lg-4">
+        <div class="card p-4 h-100">
+            <h5>Mon dossier</h5>
+            <p class="mb-1"><strong>{{ current_user.nom_complet }}</strong></p>
+            <p class="mb-1">Né(e) le {{ current_user.date_naissance.strftime('%d/%m/%Y') if current_user.date_naissance else '—' }}</p>
+            <p>{{ current_user.contact }}</p>
+            <a class="btn btn-outline-success btn-sm" href="{{ url_for('edit_profile') }}">Modifier</a>
         </div>
     </div>
-
-    <div class="col-md-7">
-        <div class="card shadow-sm p-4 h-100 rounded-3">
-            <h4 class="card-title text-success">Mes Prochains Rendez-vous</h4>
-            
+    <div class="col-lg-8">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Prochains rendez-vous</h5>
+                <a class="btn btn-success btn-sm" href="{{ url_for('book_appointment') }}">Nouveau RDV</a>
+            </div>
             {% if upcoming_appointments %}
-            <ul class="list-group list-group-flush">
+            <div class="d-grid gap-2">
                 {% for rv in upcoming_appointments %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="fw-bold">{{ rv.date.strftime('%d %B %Y') }} à {{ rv.heure.strftime('%H:%M') }}</span>
-                        <br>
-                        Dr. {{ rv.medecin_nom }} ({{ rv.specialite }})
+                <div class="queue-cards">
+                    <div class="item d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <strong>{{ rv.date|date_fr }} à {{ rv.heure.strftime('%H:%M') }}</strong><br>
+                            Dr. {{ rv.medecin.nom_complet }} ({{ rv.medecin.specialite or '—' }})
+                            {% if rv.motif %}<br><small class="text-muted">{{ rv.motif }}</small>{% endif %}
+                        </div>
+                        <div class="d-flex gap-2 align-items-center">
+                            {{ status_badge(rv.statut) }}
+                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('reschedule', rv_id=rv.id) }}">Modifier</a>
+                            {{ post_btn(url_for('cancel_appointment', rv_id=rv.id), 'Annuler', 'btn btn-sm btn-outline-danger', 'Annuler ce rendez-vous ?') }}
+                        </div>
                     </div>
-                    <span class="badge bg-primary rounded-pill">{{ rv.statut }}</span>
-                    {% if rv.statut == 'Confirmé' %}
-                        <form method="POST" action="{{ url_for('cancel_appointment', rv_id=rv.id) }}" class="d-inline">
-                            <button type="submit" class="btn btn-danger btn-sm">Annuler</button>
-                        </form>
-                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">Aucun rendez-vous à venir.</p>
+            {% endif %}
+        </div>
+        <div class="card p-4 mt-4">
+            <h5>Historique</h5>
+            {% if past_appointments %}
+            <ul class="list-group list-group-flush">
+                {% for rv in past_appointments %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ rv.date.strftime('%d/%m/%Y') }} — Dr. {{ rv.medecin.nom_complet }}</span>
+                    {{ status_badge(rv.statut) }}
                 </li>
                 {% endfor %}
             </ul>
             {% else %}
-            <div class="alert alert-info">
-                Vous n'avez aucun rendez-vous à venir.
-            </div>
+            <p class="text-muted mb-0">Pas encore d’historique.</p>
             {% endif %}
-            
-            <a href="{{ url_for('book_appointment') }}" class="btn btn-primary mt-3">Prendre un nouveau Rendez-vous</a>
         </div>
     </div>
 </div>

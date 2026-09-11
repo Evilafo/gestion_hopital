@@ -1,0 +1,23 @@
+{% extends 'layouts/base.html' %}
+{% from 'macros.html' import csrf_field %}
+{% block title %}Ma file d'attente{% endblock %}
+{% block page_heading %}Ma file du jour{% endblock %}
+{% block content %}
+{% if not position %}
+<div class="alert alert-info">Vous n’avez pas de rendez-vous aujourd’hui, ou vous n’êtes pas encore dans la file.</div>
+{% else %}
+<div class="card p-4">
+    <p><strong>Heure prévue :</strong> {{ position.file.heure_rendezvous.strftime('%H:%M') }}</p>
+    <p><strong>Statut :</strong> {{ position.file.statut_file }}</p>
+    {% if position.file.statut_file == 'En Attente' and position.rang %}
+    <p class="display-6">Vous êtes le n°{{ position.rang }}</p>
+    {% endif %}
+    {% if position.file.statut_file == 'Non arrivé' %}
+    <form method="POST" action="{{ url_for('check_in', file_id=position.file.id) }}">
+        {{ csrf_field() }}
+        <button class="btn btn-success" type="submit">Je suis arrivé(e)</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

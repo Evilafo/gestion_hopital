@@ -1,0 +1,39 @@
+{% extends 'layouts/base.html' %}
+{% block title %}Accueil — Clinique Frebonne{% endblock %}
+{% block page_heading %}{% endblock %}
+{% block content %}
+<section class="hero mb-4">
+    <h1 class="display-5 fw-bold">Bienvenue à la Clinique Frebonne</h1>
+    <p class="lead mb-4">Consultations, rendez-vous en ligne et accueil du lundi au samedi, 8h–18h.</p>
+    <a class="btn btn-light btn-lg me-2" href="{{ url_for('register_patient') }}">Créer un compte patient</a>
+    <a class="btn btn-outline-light btn-lg" href="{{ url_for('login') }}">Se connecter</a>
+</section>
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card p-4 h-100">
+            <h5><i class="bi bi-calendar-heart text-success"></i> Prendre rendez-vous</h5>
+            <p>Choisissez une spécialité, un médecin et un créneau en quelques clics.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-4 h-100">
+            <h5><i class="bi bi-clipboard2-pulse text-success"></i> Suivi de dossier</h5>
+            <p>Consultez vos rendez-vous à venir et l’historique de vos consultations.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-4 h-100">
+            <h5><i class="bi bi-people text-success"></i> File d’attente</h5>
+            <p>Le jour J, signalez votre arrivée et suivez votre position dans la file.</p>
+        </div>
+    </div>
+</div>
+{% if specialites %}
+<h3 class="mt-5 mb-3">Nos spécialités</h3>
+<div class="d-flex flex-wrap gap-2">
+    {% for spec in specialites %}
+    <span class="badge rounded-pill text-bg-light border px-3 py-2">{{ spec }}</span>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

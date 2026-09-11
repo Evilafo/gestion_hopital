@@ -1,0 +1,56 @@
+{% extends 'layouts/base.html' %}
+{% from 'macros.html' import csrf_field %}
+{% block title %}{{ action }} patient{% endblock %}
+{% block page_heading %}{{ action }} un patient{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card p-4">
+            <form method="POST">
+                {{ csrf_field() }}
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Prénom</label>
+                        <input class="form-control" name="prenom" value="{{ patient.prenom if patient else '' }}" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Nom</label>
+                        <input class="form-control" name="nom" value="{{ patient.nom if patient else '' }}" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email (laissez vide pour un dossier sans compte web)</label>
+                    <input type="email" class="form-control" name="email" value="{{ patient.email if patient and patient.compte_web else '' }}" {% if patient %}disabled{% endif %}>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Téléphone</label>
+                    <input class="form-control" name="contact" value="{{ patient.contact if patient else '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Date de naissance</label>
+                    <input type="date" class="form-control" name="date_naissance" value="{{ patient.date_naissance.strftime('%Y-%m-%d') if patient and patient.date_naissance else '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Allergies</label>
+                    <textarea class="form-control" name="allergies">{{ patient.profil_patient.allergies if patient and patient.profil_patient else '' }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Antécédents</label>
+                    <textarea class="form-control" name="antecedents">{{ patient.profil_patient.antecedents if patient and patient.profil_patient else '' }}</textarea>
+                </div>
+                {% if patient %}
+                <div class="mb-3">
+                    <label class="form-label">Notes internes</label>
+                    <textarea class="form-control" name="notes_internes">{{ patient.profil_patient.notes_internes if patient.profil_patient else '' }}</textarea>
+                </div>
+                {% endif %}
+                <div class="mb-3">
+                    <label class="form-label">Mot de passe {% if action == 'Ajouter' %}(optionnel, pour un compte web){% endif %}</label>
+                    <input type="password" class="form-control" name="password">
+                </div>
+                <button class="btn btn-success" type="submit">Enregistrer</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

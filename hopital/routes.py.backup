@@ -1,0 +1,993 @@
+import csv
+import io
+import os
+from datetime import datetime, date, time, timedelta
+from functools import wraps
+
+from flask import (
+    render_template, request, redirect, url_for, flash, jsonify, Response,
+    current_app, send_from_directory
+)
+from flask_login import login_user, login_required, logout_user, current_user
+from sqlalchemy.orm import joinedload, aliased
+from werkzeug.utils import secure_filename
+
+from hopital.extensions import db
+from hopital.models import (
+    User, PatientProfil, Salle, Creneau, RendezVous, FileAttente,
+    NoteConsultation
+)
+from hopital.services import (
+    ensure_schema, log_acces, ensure_patient_profile, sync_file_du_jour,
+    book_slot, liberer_creneau, consultation_en_cours, position_file,
+    file_payload, stats_secretariat, send_reminders, week_dates,
+    generate_internal_email, date_fr
+)
+
+
+def role_required(*roles):
+    def decorator(fn):
+        @wraps(fn)
+        @login_required
+        def wrapped(*args, **kwargs):
+            if current_user.role not in roles:
+                flash('Accès non autorisé', 'danger')
+                return redirect(url_for('dashboard'))
+            return fn(*args, **kwargs)
+        return wrapped
+    return decorator
+
+
+def register_routes(app):
+    @app.context_processor
+    def inject_globals():
+        return {
+            'date_fr': date_fr,
+            'today': date.today(),
+        }
+
+    @app.template_filter('date_fr')
+    def _date_fr_filter(value):
+        return date_fr(value)
+
+    @app.route('/')
+    def index():
+        if current_user.is_authenticated:
+            return redirect(url_for('dashboard'))
+        specialites = db.session.query(User.specialite).filter(
+            User.role == 'medecin', User.specialite.isnot(None)
+        ).distinct().all()
+        return render_template('layouts/home.html', specialites=[s[0] for s in specialites])
+
+    @app.route('/login', methods=['GET', 'POST'])
+    def login():
+        if current_user.is_authenticated:
+            return redirect(url_for('dashboard'))
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+            user = User.query.filter_by(email=username).first()
+            if user and user.compte_web and user.check_password(password):
+                login_user(user)
+                return redirect(url_for('dashboard'))
+            flash('Identifiants incorrects', 'danger')
+        return render_template('auth/login.html')
+
+    @app.route('/logout')
+    @login_required
+    def logout():
+        logout_user()
+        return redirect(url_for('login'))
+
+    @app.route('/register-patient', methods=['GET', 'POST'])
+    def register_patient():
+        if request.method == 'POST':
+            nom = request.form['nom'].strip()
+            prenom = request.form['prenom'].strip()
+            email = request.form['email'].strip()
+            password = request.form['password']
+            contact = request.form['contact'].strip()
+            try:
+                date_naissance = datetime.strptime(request.form['date_naissance'], '%Y-%m-%d').date()
+            except ValueError:
+                flash('Date de naissance invalide', 'danger')
+                return render_template('auth/register_patient.html')
+
+            if User.query.filter_by(email=email).first():
+                flash('Cet email est déjà utilisé', 'danger')
+                return render_template('auth/register_patient.html')
+
+            user = User(
+                nom=nom, prenom=prenom, email=email,
+                contact=contact, date_naissance=date_naissance,
+                role='patient', compte_web=True
+            )
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            ensure_patient_profile(user)
+            flash('Inscription réussie ! Vous pouvez maintenant vous connecter.', 'success')
+            return redirect(url_for('login'))
+        return render_template('auth/register_patient.html')
+
+    @app.route('/dashboard')
+    @login_required
+    def dashboard():
+        if current_user.role == 'patient':
+            return _patient_dashboard()
+        if current_user.role == 'medecin':
+            return _medecin_dashboard()
+        if current_user.role in ['secretaire', 'admin']:
+            sync_file_du_jour()
+            return render_template(
+                'admin_secretariat/dashboard.html',
+                stats=stats_secretariat()
+            )
+        return redirect(url_for('login'))
+
+    def _patient_dashboard():
+        upcoming = RendezVous.query.options(joinedload(RendezVous.medecin)).filter(
+            RendezVous.patient_id == current_user.id,
+            RendezVous.date >= date.today(),
+            RendezVous.statut == 'Confirmé'
+        ).order_by(RendezVous.date, RendezVous.heure).all()
+        past = RendezVous.query.options(joinedload(RendezVous.medecin)).filter(
+            RendezVous.patient_id == current_user.id,
+            db.or_(RendezVous.date < date.today(), RendezVous.statut.in_(['Terminé', 'Annulé']))
+        ).order_by(RendezVous.date.desc()).limit(20).all()
+        pos = position_file(current_user.id)
+        return render_template(
+            'patient/dashboard.html',
+            upcoming_appointments=upcoming,
+            past_appointments=past,
+            position=pos
+        )
+
+    def _medecin_dashboard():
+        today = date.today()
+        sync_file_du_jour(today)
+        today_patients = FileAttente.query.options(joinedload(FileAttente.patient)).filter(
+            FileAttente.medecin_id == current_user.id,
+            FileAttente.date == today
+        ).order_by(FileAttente.ordre, FileAttente.heure_rendezvous).all()
+        future_slots = Creneau.query.filter(
+            Creneau.medecin_id == current_user.id,
+            Creneau.date >= today
+        ).order_by(Creneau.date, Creneau.heure_debut).all()
+        past_appointments = RendezVous.query.options(joinedload(RendezVous.patient)).filter(
+            RendezVous.medecin_id == current_user.id,
+            RendezVous.date < today
+        ).order_by(RendezVous.date.desc()).limit(15).all()
+        return render_template(
+            'medecin/dashboard.html',
+            today_patients=today_patients,
+            future_slots=future_slots,
+            past_appointments=past_appointments,
+            date_du_jour=today,
+            week_days=week_dates(today),
+            week_slots=_slots_by_day(current_user.id, week_dates(today))
+        )
+
+    def _slots_by_day(medecin_id, days):
+        slots = Creneau.query.filter(
+            Creneau.medecin_id == medecin_id,
+            Creneau.date.in_(days)
+        ).order_by(Creneau.heure_debut).all()
+        grouped = {d: [] for d in days}
+        for s in slots:
+            grouped.setdefault(s.date, []).append(s)
+        return grouped
+
+    @app.route('/book-appointment')
+    @role_required('patient')
+    def book_appointment():
+        return _booking_page(patient_id=current_user.id, for_staff=False)
+
+    @app.route('/secretariat/book-appointment')
+    @role_required('secretaire', 'admin')
+    def secretariat_book_appointment():
+        return _booking_page(
+            patient_id=request.args.get('patient_id', type=int),
+            for_staff=True
+        )
+
+    def _booking_page(patient_id, for_staff):
+        specialities = [s[0] for s in db.session.query(User.specialite).filter(
+            User.role == 'medecin', User.specialite.isnot(None)
+        ).distinct().all()]
+        selected_speciality = request.args.get('speciality')
+        selected_doctor_id = request.args.get('doctor_id', type=int)
+        selected_day = request.args.get('day')
+        selected_doctor = None
+        doctors_by_speciality = []
+        slots_by_day = {}
+        available_slots = []
+        patients = []
+        if for_staff:
+            q = request.args.get('q', '').strip()
+            query = User.query.filter_by(role='patient')
+            if q:
+                like = f'%{q}%'
+                query = query.filter(db.or_(
+                    User.nom.ilike(like), User.prenom.ilike(like),
+                    User.contact.ilike(like), User.email.ilike(like)
+                ))
+            patients = query.order_by(User.nom).limit(30).all()
+
+        if selected_speciality:
+            doctors_by_speciality = User.query.filter_by(
+                role='medecin', specialite=selected_speciality
+            ).all()
+        if selected_doctor_id:
+            selected_doctor = db.session.get(User, selected_doctor_id)
+            if selected_doctor and selected_doctor.role == 'medecin':
+                available_slots = Creneau.query.filter(
+                    Creneau.medecin_id == selected_doctor_id,
+                    Creneau.date >= date.today(),
+                    Creneau.disponible.is_(True)
+                ).order_by(Creneau.date, Creneau.heure_debut).all()
+                for slot in available_slots:
+                    slots_by_day.setdefault(slot.date, []).append(slot)
+        selected_day_date = None
+        day_slots = []
+        if selected_day:
+            try:
+                selected_day_date = datetime.strptime(selected_day, '%Y-%m-%d').date()
+                day_slots = slots_by_day.get(selected_day_date, [])
+            except ValueError:
+                selected_day_date = None
+        return render_template(
+            'patient/appointment_booking.html',
+            specialities=specialities,
+            selected_speciality=selected_speciality,
+            doctors_by_speciality=doctors_by_speciality,
+            selected_doctor=selected_doctor,
+            slots_by_day=slots_by_day,
+            day_slots=day_slots,
+            selected_day=selected_day_date,
+            for_staff=for_staff,
+            patients=patients,
+            selected_patient_id=patient_id,
+            confirm_endpoint='confirm_appointment_staff' if for_staff else 'confirm_appointment'
+        )
+
+    @app.route('/confirm-appointment', methods=['GET', 'POST'])
+    @role_required('patient')
+    def confirm_appointment():
+        return _confirm_booking(current_user.id, url_for('book_appointment'))
+
+    @app.route('/secretariat/confirm-appointment', methods=['GET', 'POST'])
+    @role_required('secretaire', 'admin')
+    def confirm_appointment_staff():
+        patient_id = request.values.get('patient_id', type=int)
+        if not patient_id:
+            flash('Choisissez un patient', 'danger')
+            return redirect(url_for('secretariat_book_appointment'))
+        return _confirm_booking(patient_id, url_for('secretariat_book_appointment', patient_id=patient_id))
+
+    def _confirm_booking(patient_id, back_url):
+        slot_id = request.values.get('slot_id', type=int)
+        slot = None
+        if slot_id:
+            slot = Creneau.query.options(
+                joinedload(Creneau.medecin).joinedload(User.salle_ref)
+            ).filter_by(id=slot_id).first()
+        if not slot:
+            flash('Créneau introuvable', 'danger')
+            return redirect(back_url)
+        if request.method == 'POST':
+            motif = request.form.get('motif', '').strip()
+            rv, err = book_slot(slot.id, patient_id, motif or None)
+            if err:
+                flash(err, 'danger')
+                return redirect(back_url)
+            flash('Rendez-vous confirmé avec succès !', 'success')
+            return redirect(url_for('manage_appointments') if current_user.role in ['secretaire', 'admin'] else url_for('dashboard'))
+        return render_template(
+            'patient/appointment_confirm.html',
+            slot=slot,
+            patient=db.session.get(User, patient_id),
+            back_url=back_url
+        )
+
+    @app.route('/cancel-appointment/<int:rv_id>', methods=['POST'])
+    @login_required
+    def cancel_appointment(rv_id):
+        rv = db.session.get(RendezVous, rv_id)
+        if not rv:
+            flash('Rendez-vous introuvable', 'danger')
+            return redirect(url_for('dashboard'))
+        allowed = (
+            (current_user.role == 'patient' and rv.patient_id == current_user.id)
+            or current_user.role in ['secretaire', 'admin']
+        )
+        if not allowed:
+            flash('Accès non autorisé', 'danger')
+            return redirect(url_for('dashboard'))
+        if rv.statut != 'Confirmé':
+            flash('Ce rendez-vous ne peut plus être annulé', 'warning')
+            return redirect(url_for('dashboard'))
+        liberer_creneau(rv)
+        db.session.commit()
+        flash('Rendez-vous annulé', 'success')
+        if current_user.role in ['secretaire', 'admin']:
+            return redirect(url_for('manage_appointments'))
+        return redirect(url_for('dashboard'))
+
+    @app.route('/reschedule/<int:rv_id>', methods=['GET', 'POST'])
+    @login_required
+    def reschedule(rv_id):
+        rv = RendezVous.query.options(joinedload(RendezVous.medecin)).filter_by(id=rv_id).first()
+        if not rv:
+            flash('Rendez-vous introuvable', 'danger')
+            return redirect(url_for('dashboard'))
+        allowed = (
+            (current_user.role == 'patient' and rv.patient_id == current_user.id)
+            or current_user.role in ['secretaire', 'admin']
+        )
+        if not allowed or rv.statut != 'Confirmé':
+            flash('Modification impossible', 'danger')
+            return redirect(url_for('dashboard'))
+        if request.method == 'POST':
+            slot_id = request.form.get('slot_id', type=int)
+            new_slot = Creneau.query.with_for_update().filter_by(id=slot_id).first()
+            if not new_slot or not new_slot.disponible:
+                flash('Créneau indisponible', 'danger')
+                return redirect(url_for('reschedule', rv_id=rv_id))
+            if rv.creneau:
+                rv.creneau.disponible = True
+            new_slot.disponible = False
+            rv.creneau_id = new_slot.id
+            rv.medecin_id = new_slot.medecin_id
+            rv.date = new_slot.date
+            rv.heure = new_slot.heure_debut
+            fa = FileAttente.query.filter_by(rendez_vous_id=rv.id).first()
+            if fa:
+                db.session.delete(fa)
+            db.session.commit()
+            if new_slot.date == date.today():
+                sync_file_du_jour()
+            flash('Rendez-vous modifié', 'success')
+            return redirect(url_for('dashboard') if current_user.role == 'patient' else url_for('manage_appointments'))
+        slots = Creneau.query.filter(
+            Creneau.medecin_id == rv.medecin_id,
+            Creneau.date >= date.today(),
+            Creneau.disponible.is_(True)
+        ).order_by(Creneau.date, Creneau.heure_debut).all()
+        return render_template('patient/reschedule.html', rv=rv, slots=slots)
+
+    @app.route('/edit-profile', methods=['GET', 'POST'])
+    @role_required('patient')
+    def edit_profile():
+        if request.method == 'POST':
+            current_user.nom = request.form['nom']
+            current_user.prenom = request.form['prenom']
+            current_user.contact = request.form['contact']
+            if request.form.get('date_naissance'):
+                current_user.date_naissance = datetime.strptime(request.form['date_naissance'], '%Y-%m-%d').date()
+            password = request.form.get('password')
+            password_confirm = request.form.get('password_confirm')
+            if password:
+                if password != password_confirm:
+                    flash('Les mots de passe ne correspondent pas.', 'danger')
+                    return redirect(url_for('edit_profile'))
+                current_user.set_password(password)
+            db.session.commit()
+            flash('Profil mis à jour', 'success')
+            return redirect(url_for('dashboard'))
+        return render_template('patient/edit_profile.html')
+
+    @app.route('/ma-file')
+    @role_required('patient')
+    def ma_file():
+        sync_file_du_jour()
+        pos = position_file(current_user.id)
+        return render_template('patient/queue_position.html', position=pos)
+
+    @app.route('/check-in/<int:file_id>', methods=['POST'])
+    @login_required
+    def check_in(file_id):
+        fa = db.session.get(FileAttente, file_id)
+        if not fa:
+            flash('File introuvable', 'danger')
+            return redirect(url_for('dashboard'))
+        own = current_user.role == 'patient' and fa.patient_id == current_user.id
+        staff = current_user.role in ['secretaire', 'admin']
+        if not (own or staff):
+            flash('Accès non autorisé', 'danger')
+            return redirect(url_for('dashboard'))
+        if fa.date != date.today():
+            flash('Le check-in n\'est possible que le jour du rendez-vous', 'warning')
+            return redirect(url_for('dashboard'))
+        fa.statut_file = 'En Attente'
+        db.session.commit()
+        flash('Arrivée enregistrée', 'success')
+        if staff:
+            return redirect(url_for('queue_management'))
+        return redirect(url_for('ma_file'))
+
+    @app.route('/add-slot', methods=['GET', 'POST'])
+    @role_required('medecin')
+    def add_slot():
+        if request.method == 'POST':
+            date_slot = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+            heure_debut = datetime.strptime(request.form['heure_debut'], '%H:%M').time()
+            heure_fin = datetime.strptime(request.form['heure_fin'], '%H:%M').time()
+            if heure_fin <= heure_debut:
+                flash('L\'heure de fin doit être après l\'heure de début', 'danger')
+                return render_template('medecin/add_slot.html')
+            existing = Creneau.query.filter(
+                Creneau.medecin_id == current_user.id,
+                Creneau.date == date_slot,
+                Creneau.heure_debut < heure_fin,
+                Creneau.heure_fin > heure_debut
+            ).first()
+            if existing:
+                flash('Conflit avec un créneau existant', 'danger')
+            else:
+                db.session.add(Creneau(
+                    medecin_id=current_user.id,
+                    date=date_slot,
+                    heure_debut=heure_debut,
+                    heure_fin=heure_fin,
+                    disponible=True
+                ))
+                db.session.commit()
+                flash('Créneau ajouté avec succès', 'success')
+                return redirect(url_for('dashboard'))
+        return render_template('medecin/add_slot.html')
+
+    @app.route('/planning-semaine')
+    @role_required('medecin')
+    def planning_semaine():
+        start = request.args.get('start')
+        if start:
+            try:
+                start_date = datetime.strptime(start, '%Y-%m-%d').date()
+            except ValueError:
+                start_date = date.today()
+        else:
+            start_date = date.today()
+        days = week_dates(start_date)
+        return render_template(
+            'medecin/week.html',
+            week_days=days,
+            week_slots=_slots_by_day(current_user.id, days),
+            prev_start=days[0] - timedelta(days=7),
+            next_start=days[0] + timedelta(days=7)
+        )
+
+    @app.route('/delete-slot/<int:slot_id>', methods=['POST'])
+    @role_required('medecin')
+    def delete_slot(slot_id):
+        slot = db.session.get(Creneau, slot_id)
+        if slot and slot.medecin_id == current_user.id and slot.disponible:
+            db.session.delete(slot)
+            db.session.commit()
+            flash('Créneau supprimé', 'success')
+        else:
+            flash('Impossible de supprimer ce créneau', 'danger')
+        return redirect(url_for('dashboard'))
+
+    @app.route('/start-consultation/<int:queue_id>', methods=['POST'])
+    @role_required('medecin')
+    def start_consultation(queue_id):
+        fa = db.session.get(FileAttente, queue_id)
+        if not fa or fa.medecin_id != current_user.id:
+            flash('File introuvable', 'danger')
+            return redirect(url_for('dashboard'))
+        ongoing = consultation_en_cours(current_user.id)
+        if ongoing and ongoing.id != fa.id:
+            flash('Terminez d\'abord la consultation en cours.', 'warning')
+            return redirect(url_for('dashboard'))
+        fa.statut_file = 'En Consultation'
+        db.session.commit()
+        flash('Consultation commencée', 'success')
+        return redirect(url_for('dashboard'))
+
+    @app.route('/end-consultation/<int:queue_id>', methods=['POST'])
+    @role_required('medecin')
+    def end_consultation(queue_id):
+        fa = db.session.get(FileAttente, queue_id)
+        if not fa or fa.medecin_id != current_user.id:
+            flash('File introuvable', 'danger')
+            return redirect(url_for('dashboard'))
+        fa.statut_file = 'Terminé'
+        fa.rendez_vous.statut = 'Terminé'
+        db.session.commit()
+        flash('Consultation terminée. Vous pouvez ajouter une note.', 'success')
+        return redirect(url_for('consultation_note', rdv_id=fa.rendez_vous_id))
+
+    @app.route('/consultation-note/<int:rdv_id>', methods=['GET', 'POST'])
+    @role_required('medecin')
+    def consultation_note(rdv_id):
+        rdv = RendezVous.query.options(
+            joinedload(RendezVous.patient), joinedload(RendezVous.note)
+        ).filter_by(id=rdv_id).first()
+        if not rdv:
+            flash('Rendez-vous introuvable', 'danger')
+            return redirect(url_for('dashboard'))
+        if rdv.medecin_id != current_user.id:
+            flash('Accès non autorisé', 'danger')
+            return redirect(url_for('dashboard'))
+        note = rdv.note or NoteConsultation(rendez_vous_id=rdv.id, medecin_id=current_user.id)
+        if request.method == 'POST':
+            note.motif = request.form.get('motif')
+            note.diagnostic = request.form.get('diagnostic')
+            note.ordonnance = request.form.get('ordonnance')
+            note.notes = request.form.get('notes')
+            upload = request.files.get('document')
+            if upload and upload.filename:
+                folder = current_app.config['UPLOAD_FOLDER']
+                os.makedirs(folder, exist_ok=True)
+                filename = secure_filename(f"{rdv.id}_{upload.filename}")
+                upload.save(os.path.join(folder, filename))
+                note.document_path = filename
+            if not rdv.note:
+                db.session.add(note)
+            db.session.commit()
+            flash('Note de consultation enregistrée', 'success')
+            return redirect(url_for('view_patient_dossier', patient_id=rdv.patient_id))
+        return render_template('medecin/consultation_note.html', rdv=rdv, note=note)
+
+    @app.route('/uploads/<path:filename>')
+    @login_required
+    def uploaded_file(filename):
+        if current_user.role not in ['medecin', 'secretaire', 'admin']:
+            flash('Accès non autorisé', 'danger')
+            return redirect(url_for('dashboard'))
+        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+
+    @app.route('/queue-management')
+    @role_required('secretaire', 'admin')
+    def queue_management():
+        payload = file_payload()
+        return render_template(
+            'admin_secretariat/queue_management.html',
+            file_data=payload,
+            date_du_jour=date.today()
+        )
+
+    @app.route('/api/queue-today')
+    @role_required('secretaire', 'admin', 'medecin')
+    def api_queue_today():
+        payload = file_payload()
+        return jsonify({
+            'date': date.today().isoformat(),
+            'medecins': [
+                {
+                    'id': block['medecin'].id,
+                    'nom': block['medecin'].nom_complet,
+                    'specialite': block['medecin'].specialite,
+                    'salle': block['salle'],
+                    'patients': [
+                        {
+                            'id': p.id,
+                            'patient_id': p.patient_id,
+                            'nom': p.patient.nom_complet if p.patient else '',
+                            'heure': p.heure_rendezvous.strftime('%H:%M'),
+                            'statut': p.statut_file,
+                            'ordre': p.ordre
+                        } for p in block['patients']
+                    ]
+                } for block in payload
+            ]
+        })
+
+    @app.route('/waiting-room')
+    @role_required('secretaire', 'admin', 'medecin')
+    def waiting_room():
+        return render_template('admin_secretariat/waiting_room.html', date_du_jour=date.today())
+
+    @app.route('/queue-print')
+    @role_required('secretaire', 'admin')
+    def queue_print():
+        return render_template(
+            'admin_secretariat/queue_print.html',
+            file_data=file_payload(),
+            date_du_jour=date.today()
+        )
+
+    @app.route('/call-patient/<int:file_id>', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def call_patient(file_id):
+        fa = db.session.get(FileAttente, file_id)
+        if fa:
+            ongoing = consultation_en_cours(fa.medecin_id)
+            if ongoing and ongoing.id != fa.id:
+                flash('Une consultation est déjà en cours pour ce médecin.', 'warning')
+                return redirect(url_for('queue_management'))
+            fa.statut_file = 'En Consultation'
+            db.session.commit()
+            flash('Patient appelé', 'success')
+        return redirect(url_for('queue_management'))
+
+    @app.route('/next-patient/<int:medecin_id>', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def next_patient(medecin_id):
+        ongoing = consultation_en_cours(medecin_id)
+        if ongoing:
+            flash('Terminez d\'abord la consultation en cours.', 'warning')
+            return redirect(url_for('queue_management'))
+        nxt = FileAttente.query.filter_by(
+            medecin_id=medecin_id, date=date.today(), statut_file='En Attente'
+        ).order_by(FileAttente.ordre).first()
+        if not nxt:
+            flash('Aucun patient en attente', 'info')
+        else:
+            nxt.statut_file = 'En Consultation'
+            db.session.commit()
+            flash(f'{nxt.patient.nom_complet} appelé', 'success')
+        return redirect(url_for('queue_management'))
+
+    @app.route('/finish-consultation/<int:file_id>', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def finish_consultation(file_id):
+        fa = db.session.get(FileAttente, file_id)
+        if fa:
+            fa.statut_file = 'Terminé'
+            fa.rendez_vous.statut = 'Terminé'
+            db.session.commit()
+            flash('Consultation marquée comme terminée', 'success')
+        return redirect(url_for('queue_management'))
+
+    @app.route('/mark-absent/<int:file_id>', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def mark_absent(file_id):
+        fa = db.session.get(FileAttente, file_id)
+        if fa:
+            fa.statut_file = 'Absent'
+            if fa.rendez_vous and fa.rendez_vous.creneau:
+                fa.rendez_vous.creneau.disponible = True
+            db.session.commit()
+            flash('Patient marqué absent', 'info')
+        return redirect(url_for('queue_management'))
+
+    @app.route('/delay-patient/<int:file_id>', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def delay_patient(file_id):
+        fa = db.session.get(FileAttente, file_id)
+        minutes = request.form.get('minutes', type=int) or 15
+        if fa and fa.heure_rendezvous:
+            dt = datetime.combine(date.today(), fa.heure_rendezvous) + timedelta(minutes=minutes)
+            fa.heure_rendezvous = dt.time()
+            db.session.commit()
+            sync_file_du_jour()
+            flash(f'Retard de {minutes} min enregistré', 'info')
+        return redirect(url_for('queue_management'))
+
+    @app.route('/move-queue/<int:file_id>/<direction>', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def move_queue(file_id, direction):
+        fa = db.session.get(FileAttente, file_id)
+        if not fa:
+            return redirect(url_for('queue_management'))
+        siblings = FileAttente.query.filter_by(
+            medecin_id=fa.medecin_id, date=fa.date
+        ).order_by(FileAttente.ordre).all()
+        idx = next((i for i, x in enumerate(siblings) if x.id == fa.id), None)
+        if idx is None:
+            return redirect(url_for('queue_management'))
+        swap_with = idx - 1 if direction == 'up' else idx + 1
+        if 0 <= swap_with < len(siblings):
+            siblings[idx].ordre, siblings[swap_with].ordre = siblings[swap_with].ordre, siblings[idx].ordre
+            db.session.commit()
+        return redirect(url_for('queue_management'))
+
+    @app.route('/manage-personnel')
+    @role_required('admin')
+    def manage_personnel():
+        personnel = User.query.filter(User.role.in_(['medecin', 'secretaire', 'admin'])).options(
+            joinedload(User.salle_ref)
+        ).all()
+        return render_template('admin_secretariat/manage_personnel.html', personnel=personnel)
+
+    @app.route('/add-personnel', methods=['GET', 'POST'])
+    @role_required('admin')
+    def add_personnel():
+        if request.method == 'POST':
+            email = request.form['email']
+            if User.query.filter_by(email=email).first():
+                flash('Cet email est déjà utilisé.', 'danger')
+                return redirect(request.url)
+            user = User(
+                nom=request.form['nom'],
+                prenom=request.form['prenom'],
+                email=email,
+                role=request.form['role'],
+                contact=request.form.get('contact'),
+                specialite=request.form.get('specialite') if request.form['role'] == 'medecin' else None,
+                salle_id=(request.form.get('salle_id') or None) if request.form['role'] == 'medecin' else None,
+                compte_web=True
+            )
+            user.set_password(request.form['password'])
+            db.session.add(user)
+            db.session.commit()
+            flash('Le membre du personnel a été ajouté avec succès.', 'success')
+            return redirect(url_for('manage_personnel'))
+        salles = Salle.query.all()
+        return render_template('admin_secretariat/edit_personnel.html', action='Ajouter', salles=salles)
+
+    @app.route('/edit-personnel/<int:user_id>', methods=['GET', 'POST'])
+    @role_required('admin')
+    def edit_personnel(user_id):
+        user_to_edit = User.query.get_or_404(user_id)
+        if request.method == 'POST':
+            new_email = request.form['email']
+            if new_email != user_to_edit.email and User.query.filter_by(email=new_email).first():
+                flash('Ce nouvel email est déjà utilisé.', 'danger')
+                return redirect(request.url)
+            user_to_edit.nom = request.form['nom']
+            user_to_edit.prenom = request.form['prenom']
+            user_to_edit.email = new_email
+            user_to_edit.contact = request.form.get('contact')
+            if user_to_edit.role != 'admin':
+                user_to_edit.role = request.form['role']
+            if user_to_edit.role == 'medecin':
+                user_to_edit.specialite = request.form.get('specialite')
+                user_to_edit.salle_id = request.form.get('salle_id') or None
+            else:
+                user_to_edit.specialite = None
+                user_to_edit.salle_id = None
+            if request.form.get('password'):
+                user_to_edit.set_password(request.form['password'])
+            db.session.commit()
+            flash('Les informations ont été mises à jour.', 'success')
+            return redirect(url_for('manage_personnel'))
+        salles = Salle.query.all()
+        return render_template(
+            'admin_secretariat/edit_personnel.html',
+            action='Modifier', user=user_to_edit, salles=salles
+        )
+
+    @app.route('/delete-personnel/<int:user_id>', methods=['POST'])
+    @role_required('admin')
+    def delete_personnel(user_id):
+        user_to_delete = User.query.get_or_404(user_id)
+        if user_to_delete.id == current_user.id:
+            flash('Vous ne pouvez pas supprimer votre propre compte.', 'danger')
+            return redirect(url_for('manage_personnel'))
+        if user_to_delete.role == 'medecin' and RendezVous.query.filter_by(medecin_id=user_id).first():
+            flash('Impossible de supprimer ce médecin car il a des rendez-vous associés.', 'danger')
+            return redirect(url_for('manage_personnel'))
+        db.session.delete(user_to_delete)
+        db.session.commit()
+        flash('Le membre du personnel a été supprimé avec succès.', 'success')
+        return redirect(url_for('manage_personnel'))
+
+    @app.route('/manage-patients')
+    @role_required('secretaire', 'admin')
+    def manage_patients():
+        q = request.args.get('q', '').strip()
+        page = request.args.get('page', 1, type=int)
+        query = User.query.filter_by(role='patient')
+        if q:
+            like = f'%{q}%'
+            query = query.filter(db.or_(
+                User.nom.ilike(like),
+                User.prenom.ilike(like),
+                User.contact.ilike(like),
+                User.email.ilike(like)
+            ))
+            if q.count('/') == 2:
+                try:
+                    dn = datetime.strptime(q, '%d/%m/%Y').date()
+                    query = User.query.filter_by(role='patient', date_naissance=dn)
+                except ValueError:
+                    pass
+        pagination = query.order_by(User.nom, User.prenom).paginate(page=page, per_page=12, error_out=False)
+        return render_template(
+            'admin_secretariat/manage_patients.html',
+            patients=pagination.items,
+            pagination=pagination,
+            q=q
+        )
+
+    @app.route('/add-patient', methods=['GET', 'POST'])
+    @role_required('secretaire', 'admin')
+    def add_patient():
+        if request.method == 'POST':
+            email = request.form.get('email', '').strip()
+            compte_web = bool(email)
+            if not email:
+                email = generate_internal_email()
+            if User.query.filter_by(email=email).first():
+                flash('Cet email est déjà utilisé', 'danger')
+                return render_template('admin_secretariat/edit_patient.html', patient=None, action='Ajouter')
+            user = User(
+                nom=request.form['nom'],
+                prenom=request.form['prenom'],
+                email=email,
+                contact=request.form.get('contact'),
+                role='patient',
+                compte_web=compte_web
+            )
+            if request.form.get('date_naissance'):
+                user.date_naissance = datetime.strptime(request.form['date_naissance'], '%Y-%m-%d').date()
+            password = request.form.get('password') or 'temp-' + generate_internal_email()[:8]
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            ensure_patient_profile(user)
+            profil = user.profil_patient
+            profil.allergies = request.form.get('allergies')
+            profil.antecedents = request.form.get('antecedents')
+            db.session.commit()
+            flash('Patient créé', 'success')
+            return redirect(url_for('manage_patients'))
+        return render_template('admin_secretariat/edit_patient.html', patient=None, action='Ajouter')
+
+    @app.route('/edit-patient/<int:patient_id>', methods=['GET', 'POST'])
+    @role_required('secretaire', 'admin')
+    def edit_patient(patient_id):
+        patient = User.query.get_or_404(patient_id)
+        if patient.role != 'patient':
+            flash('Utilisateur non valide.', 'danger')
+            return redirect(url_for('manage_patients'))
+        ensure_patient_profile(patient)
+        if request.method == 'POST':
+            patient.nom = request.form['nom']
+            patient.prenom = request.form['prenom']
+            patient.contact = request.form['contact']
+            if request.form.get('date_naissance'):
+                patient.date_naissance = datetime.strptime(request.form['date_naissance'], '%Y-%m-%d').date()
+            if request.form.get('password'):
+                patient.set_password(request.form['password'])
+                patient.compte_web = True
+            if patient.profil_patient:
+                patient.profil_patient.allergies = request.form.get('allergies')
+                patient.profil_patient.antecedents = request.form.get('antecedents')
+                patient.profil_patient.notes_internes = request.form.get('notes_internes')
+            db.session.commit()
+            flash('Les informations du patient ont été mises à jour.', 'success')
+            return redirect(url_for('manage_patients'))
+        return render_template('admin_secretariat/edit_patient.html', patient=patient, action='Modifier')
+
+    @app.route('/export-patients')
+    @role_required('secretaire', 'admin')
+    def export_patients():
+        patients = User.query.filter_by(role='patient').order_by(User.nom).all()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Nom', 'Prénom', 'Email', 'Téléphone', 'Naissance'])
+        for p in patients:
+            writer.writerow([p.nom, p.prenom, p.email, p.contact or '', p.date_naissance or ''])
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=patients.csv'}
+        )
+
+    @app.route('/manage-rooms')
+    @role_required('secretaire', 'admin')
+    def manage_rooms():
+        salles = Salle.query.options(joinedload(Salle.medecins)).all()
+        return render_template('admin_secretariat/manage_rooms.html', salles=salles)
+
+    @app.route('/add-room', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def add_room():
+        numero = request.form['numero'].strip()
+        if Salle.query.filter_by(numero=numero).first():
+            flash('Ce numéro de salle existe déjà', 'danger')
+            return redirect(url_for('manage_rooms'))
+        db.session.add(Salle(numero=numero, nom=request.form.get('nom'), disponible=True))
+        db.session.commit()
+        flash('Salle ajoutée', 'success')
+        return redirect(url_for('manage_rooms'))
+
+    @app.route('/edit-room/<int:salle_id>', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def edit_room(salle_id):
+        salle = Salle.query.get_or_404(salle_id)
+        salle.numero = request.form['numero']
+        salle.nom = request.form.get('nom')
+        db.session.commit()
+        flash('Salle mise à jour', 'success')
+        return redirect(url_for('manage_rooms'))
+
+    @app.route('/delete-room/<int:salle_id>', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def delete_room(salle_id):
+        salle = Salle.query.get_or_404(salle_id)
+        if salle.medecins:
+            flash('Impossible de supprimer une salle assignée', 'danger')
+            return redirect(url_for('manage_rooms'))
+        db.session.delete(salle)
+        db.session.commit()
+        flash('Salle supprimée', 'success')
+        return redirect(url_for('manage_rooms'))
+
+    @app.route('/manage-appointments')
+    @role_required('secretaire', 'admin')
+    def manage_appointments():
+        Patient = aliased(User)
+        Medecin = aliased(User)
+        page = request.args.get('page', 1, type=int)
+        statut = request.args.get('statut', '')
+        date_filter = request.args.get('date', '')
+        query = db.session.query(
+            RendezVous,
+            db.func.concat(Patient.prenom, ' ', Patient.nom).label('patient_nom'),
+            db.func.concat(Medecin.prenom, ' ', Medecin.nom).label('medecin_nom')
+        ).join(Patient, RendezVous.patient_id == Patient.id).join(
+            Medecin, RendezVous.medecin_id == Medecin.id
+        )
+        if statut:
+            query = query.filter(RendezVous.statut == statut)
+        if date_filter:
+            try:
+                d = datetime.strptime(date_filter, '%Y-%m-%d').date()
+                query = query.filter(RendezVous.date == d)
+            except ValueError:
+                pass
+        query = query.order_by(RendezVous.date.desc(), RendezVous.heure.desc())
+        pagination = query.paginate(page=page, per_page=15, error_out=False)
+        return render_template(
+            'admin_secretariat/manage_appointments.html',
+            appointments=pagination.items,
+            pagination=pagination,
+            statut=statut,
+            date_filter=date_filter
+        )
+
+    @app.route('/export-appointments')
+    @role_required('secretaire', 'admin')
+    def export_appointments():
+        Patient = aliased(User)
+        Medecin = aliased(User)
+        rows = db.session.query(
+            RendezVous, Patient, Medecin
+        ).join(Patient, RendezVous.patient_id == Patient.id).join(
+            Medecin, RendezVous.medecin_id == Medecin.id
+        ).order_by(RendezVous.date.desc()).all()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Date', 'Heure', 'Patient', 'Médecin', 'Statut', 'Motif'])
+        for rv, patient, medecin in rows:
+            writer.writerow([
+                rv.date, rv.heure, patient.nom_complet, medecin.nom_complet, rv.statut, rv.motif or ''
+            ])
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=rendez_vous.csv'}
+        )
+
+    @app.route('/stats')
+    @role_required('secretaire', 'admin')
+    def stats():
+        return render_template('admin_secretariat/stats.html', stats=stats_secretariat())
+
+    @app.route('/send-reminders', methods=['POST'])
+    @role_required('secretaire', 'admin')
+    def send_reminders_route():
+        sent, errors = send_reminders()
+        if errors:
+            flash(f'{sent} rappel(s) traités, erreurs SMTP : {errors[0]}', 'warning')
+        elif not current_app.config.get('MAIL_SERVER'):
+            flash(f'{sent} rappel(s) marqués (aucun serveur SMTP configuré, e-mails non envoyés).', 'info')
+        else:
+            flash(f'{sent} rappel(s) envoyés', 'success')
+        return redirect(url_for('dashboard'))
+
+    @app.route('/view-patient-dossier/<int:patient_id>')
+    @role_required('medecin', 'secretaire', 'admin')
+    def view_patient_dossier(patient_id):
+        patient = db.session.get(User, patient_id)
+        if not patient or patient.role != 'patient':
+            flash('Patient non trouvé', 'danger')
+            return redirect(url_for('dashboard'))
+        ensure_patient_profile(patient)
+        log_acces(current_user.id, 'consultation_dossier', patient_id=patient.id)
+        Medecin = aliased(User)
+        historique = db.session.query(RendezVous, Medecin).join(
+            Medecin, RendezVous.medecin_id == Medecin.id
+        ).options(joinedload(RendezVous.note)).filter(
+            RendezVous.patient_id == patient_id
+        ).order_by(RendezVous.date.desc()).all()
+        return render_template(
+            'medecin/patient_dossier.html',
+            patient=patient,
+            historique=historique
+        )

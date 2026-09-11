@@ -1,0 +1,22 @@
+{% extends 'layouts/base.html' %}
+{% block title %}Impression file{% endblock %}
+{% block page_heading %}File du {{ date_du_jour.strftime('%d/%m/%Y') }}{% endblock %}
+{% block content %}
+<button class="btn btn-success no-print mb-3" onclick="window.print()">Imprimer</button>
+{% for block in file_data %}
+<h3>Dr. {{ block.medecin.nom_complet }} — salle {{ block.salle }}</h3>
+<table class="table table-bordered">
+    <thead><tr><th>#</th><th>Heure</th><th>Patient</th><th>Statut</th></tr></thead>
+    <tbody>
+    {% for item in block.patients %}
+    <tr>
+        <td>{{ item.ordre }}</td>
+        <td>{{ item.heure_rendezvous.strftime('%H:%M') }}</td>
+        <td>{{ item.patient.nom_complet }}</td>
+        <td>{{ item.statut_file }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endfor %}
+{% endblock %}
