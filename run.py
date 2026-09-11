@@ -79,5 +79,5 @@ if __name__ == '__main__':
     
     # Démarrer l'application
     debug = os.environ.get('FLASK_ENV') != 'production'
-    app.run(debug=debug, host='0.0.0.0', port=5002)
-    #app.run(debug=False, host='0.0.0.0', port=5002)
+    #app.run(debug=debug, host='0.0.0.0', port=5002)
+    app.run(debug=False, host='0.0.0.0', port=5002)

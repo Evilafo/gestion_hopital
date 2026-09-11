@@ -23,6 +23,9 @@
             <td>{{ patient.contact or patient.email }}</td>
             <td>{{ patient.date_naissance.strftime('%d/%m/%Y') if patient.date_naissance else '—' }}</td>
             <td>
+                {% if patient.contact %}
+                <a class="btn btn-sm btn-outline-success" href="tel:{{ patient.contact }}" title="Appeler">📞</a>
+                {% endif %}
                 <a class="btn btn-sm btn-outline-info" href="{{ url_for('view_patient_dossier', patient_id=patient.id) }}">Dossier</a>
                 <a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit_patient', patient_id=patient.id) }}">Modifier</a>
             </td>
@@ -36,7 +39,12 @@
     <div class="card p-3 mb-2">
         <strong>{{ patient.nom_complet }}</strong>
         <div>{{ patient.contact }}</div>
-        <a href="{{ url_for('view_patient_dossier', patient_id=patient.id) }}">Dossier</a>
+        <div class="d-flex gap-2 mt-2">
+            {% if patient.contact %}
+            <a class="btn btn-sm btn-outline-success" href="tel:{{ patient.contact }}">📞 Appeler</a>
+            {% endif %}
+            <a class="btn btn-sm btn-outline-info" href="{{ url_for('view_patient_dossier', patient_id=patient.id) }}">Dossier</a>
+        </div>
     </div>
     {% endfor %}
 </div>

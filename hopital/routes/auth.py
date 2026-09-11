@@ -1,4 +1,5 @@
 from datetime import datetime
+from urllib.parse import quote
 from flask import render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_user, login_required, logout_user, current_user
 from hopital.extensions import db, limiter
@@ -76,6 +77,20 @@ def register_routes(app):
             db.session.add(user)
             db.session.commit()
             PatientService.ensure_patient_profile(user)
+
+            # Générer le lien WhatsApp avec les identifiants
+            whatsapp_link = None
+            if contact:
+                # Nettoyer le numéro de téléphone (enlever espaces, tirets, etc.)
+                clean_phone = contact.replace(' ', '').replace('-', '').replace('.', '')
+                # S'assurer que le numéro commence par + pour le format international
+                if not clean_phone.startswith('+'):
+                    clean_phone = '+33' + clean_phone.lstrip('0')  # Format français par défaut
+                # Créer le message avec les identifiants
+                message = f"Bonjour {prenom}, votre compte a été créé avec succès.\n\nEmail: {email}\nMot de passe: {password}\n\nVous pouvez vous connecter sur: {request.host_url}"
+                encoded_message = quote(message)
+                whatsapp_link = f"https://wa.me/{clean_phone}?text={encoded_message}"
+
             flash('Inscription réussie ! Vous pouvez maintenant vous connecter.', 'success')
-            return redirect(url_for('login'))
+            return render_template('auth/register_patient.html', whatsapp_link=whatsapp_link, new_user_email=email, new_user_password=password)
         return render_template('auth/register_patient.html')

@@ -21,7 +21,12 @@
             <p class="mb-1"><strong>{{ current_user.nom_complet }}</strong></p>
             <p class="mb-1">Né(e) le {{ current_user.date_naissance.strftime('%d/%m/%Y') if current_user.date_naissance else '—' }}</p>
             <p>{{ current_user.contact }}</p>
-            <a class="btn btn-outline-success btn-sm" href="{{ url_for('edit_profile') }}">Modifier</a>
+            <div class="d-flex gap-2">
+                {% if current_user.contact %}
+                <a class="btn btn-outline-success btn-sm" href="tel:{{ current_user.contact }}">📞 Appeler</a>
+                {% endif %}
+                <a class="btn btn-outline-success btn-sm" href="{{ url_for('edit_profile') }}">Modifier</a>
+            </div>
         </div>
     </div>
     <div class="col-lg-8">

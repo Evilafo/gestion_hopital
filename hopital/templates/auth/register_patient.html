@@ -6,6 +6,23 @@
 <div class="row justify-content-center">
     <div class="col-lg-6">
         <div class="card p-4">
+            {% if whatsapp_link %}
+            <div class="alert alert-success">
+                <h5>✅ Inscription réussie !</h5>
+                <p>Votre compte a été créé avec succès.</p>
+                <div class="mb-3">
+                    <strong>Vos identifiants :</strong>
+                    <div>Email : {{ new_user_email }}</div>
+                    <div>Mot de passe : {{ new_user_password }}</div>
+                </div>
+                <p class="mb-2">Envoyez vos identifiants par WhatsApp :</p>
+                <a href="{{ whatsapp_link }}" target="_blank" class="btn btn-success w-100">
+                    📱 Envoyer via WhatsApp
+                </a>
+                <hr>
+                <a href="{{ url_for('login') }}" class="btn btn-outline-primary w-100">Se connecter</a>
+            </div>
+            {% else %}
             <form method="POST">
                 {{ csrf_field() }}
                 <div class="row">
@@ -28,7 +45,8 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="contact">Téléphone</label>
-                    <input class="form-control" id="contact" name="contact" required>
+                    <input class="form-control" id="contact" name="contact" required placeholder="06 12 34 56 78">
+                    <small class="text-muted">Format français (ex: 06 12 34 56 78)</small>
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="date_naissance">Date de naissance</label>
@@ -36,6 +54,7 @@
                 </div>
                 <button class="btn btn-success w-100" type="submit">S'inscrire</button>
             </form>
+            {% endif %}
         </div>
     </div>
 </div>
