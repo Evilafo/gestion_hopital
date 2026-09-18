@@ -1,0 +1,24 @@
+{% extends 'layouts/base.html' %}
+{% block title %}Planning semaine{% endblock %}
+{% block page_heading %}Planning de la semaine{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+    <a class="btn btn-outline-success" href="{{ url_for('planning_semaine', start=prev_start.isoformat()) }}">Semaine précédente</a>
+    <a class="btn btn-outline-success" href="{{ url_for('planning_semaine', start=next_start.isoformat()) }}">Semaine suivante</a>
+</div>
+<div class="week-grid">
+    {% for day in week_days %}
+    <div class="week-col">
+        <strong>{{ day|date_fr }}</strong>
+        {% for slot in week_slots.get(day, []) %}
+        <div class="week-slot {% if slot.disponible %}free{% else %}busy{% endif %}">
+            {{ slot.heure_debut.strftime('%H:%M') }}–{{ slot.heure_fin.strftime('%H:%M') }}
+            {{ 'libre' if slot.disponible else 'réservé' }}
+        </div>
+        {% else %}
+        <p class="small text-muted">Aucun créneau</p>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

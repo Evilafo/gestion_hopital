@@ -1,60 +1,23 @@
 {% extends 'layouts/base.html' %}
-
-{% block title %}Dashboard Secrétariat{% endblock %}
-
+{% from 'macros.html' import csrf_field %}
+{% block title %}Tableau de bord{% endblock %}
+{% block page_heading %}Tableau de bord secrétariat{% endblock %}
 {% block content %}
-<h1 class="mb-4">Dashboard Secrétariat</h1>
-<p class="lead">Bienvenue, {{ current_user.prenom }} ! Gérez ici les ressources de l'hôpital.</p>
-
-<div class="row g-4">
-    <div class="col-md-4">
-        <div class="card text-center bg-info text-white h-100">
-            <div class="card-body rounded-3">
-                <h5 class="card-title display-4">Personnel</h5>
-                <p class="card-text">Gérez les médecins, secrétaires et administrateurs.</p>
-                <a href="{{ url_for('manage_personnel') }}" class="btn btn-light mt-3">Gérer</a>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card text-center bg-success text-white h-100 rounded-3">
-            <div class="card-body">
-                <h5 class="card-title display-4">Patients</h5>
-                <p class="card-text">Recherchez et consultez les dossiers patients.</p>
-                <a href="{{ url_for('manage_patients') }}" class="btn btn-light mt-3">Gérer</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="card text-center bg-warning text-dark h-100 rounded-3">
-            <div class="card-body">
-                <h5 class="card-title display-4">Salles</h5>
-                <p class="card-text">Supervisez l'état des salles de consultation.</p>
-                <a href="{{ url_for('manage_rooms') }}" class="btn btn-light mt-3">Gérer</a>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6">
-        <div class="card text-center bg-danger text-white h-100 rounded-3">
-            <div class="card-body">
-                <h5 class="card-title display-4">Rendez-vous</h5>
-                <p class="card-text">Planifiez, modifiez et consultez les rendez-vous.</p>
-                <a href="{{ url_for('manage_appointments') }}" class="btn btn-light mt-3">Gérer</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="card text-center bg-primary text-white h-100 rounded-3">
-            <div class="card-body">
-                <h5 class="card-title display-4">File d'Attente</h5>
-                <p class="card-text">Gérez l'arrivée et le flux des patients du jour.</p>
-                <a href="{{ url_for('queue_management') }}" class="btn btn-light mt-3">Accéder à la File</a>
-            </div>
-        </div>
-    </div>
+<p class="text-muted">Bienvenue {{ current_user.prenom }}. Vue du {{ stats.date.strftime('%d/%m/%Y') }}.</p>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3"><div class="kpi"><div class="value">{{ stats.rdv_today }}</div><div>RDV aujourd’hui</div></div></div>
+    <div class="col-6 col-lg-3"><div class="kpi"><div class="value">{{ stats.en_attente }}</div><div>En attente</div></div></div>
+    <div class="col-6 col-lg-3"><div class="kpi"><div class="value">{{ stats.en_consult }}</div><div>En consultation</div></div></div>
+    <div class="col-6 col-lg-3"><div class="kpi"><div class="value">{{ stats.salles_libres }}/{{ stats.salles_total }}</div><div>Salles libres</div></div></div>
+</div>
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-success" href="{{ url_for('queue_management') }}">File d’attente</a>
+    <a class="btn btn-outline-success" href="{{ url_for('manage_patients') }}">Patients</a>
+    <a class="btn btn-outline-success" href="{{ url_for('secretariat_book_appointment') }}">Nouveau RDV</a>
+    <a class="btn btn-outline-success" href="{{ url_for('stats') }}">Statistiques</a>
+    <form method="POST" action="{{ url_for('send_reminders_route') }}">
+        {{ csrf_field() }}
+        <button class="btn btn-outline-primary" type="submit">Envoyer les rappels J-1 / H-2</button>
+    </form>
 </div>
 {% endblock %}

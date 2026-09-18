@@ -1,0 +1,36 @@
+{% extends 'layouts/base.html' %}
+{% from 'macros.html' import csrf_field %}
+{% block title %}Note de consultation{% endblock %}
+{% block page_heading %}Note de consultation{% endblock %}
+{% block content %}
+<div class="card p-4">
+    <p>Patient : <strong>{{ rdv.patient.nom_complet }}</strong> — {{ rdv.date.strftime('%d/%m/%Y') }} {{ rdv.heure.strftime('%H:%M') }}</p>
+    <form method="POST" enctype="multipart/form-data">
+        {{ csrf_field() }}
+        <div class="mb-3">
+            <label class="form-label">Motif</label>
+            <textarea class="form-control" name="motif">{{ note.motif or rdv.motif or '' }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Diagnostic</label>
+            <textarea class="form-control" name="diagnostic">{{ note.diagnostic or '' }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Ordonnance</label>
+            <textarea class="form-control" name="ordonnance">{{ note.ordonnance or '' }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" name="notes">{{ note.notes or '' }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Document</label>
+            <input type="file" class="form-control" name="document">
+            {% if note.document_path %}
+            <a href="{{ url_for('uploaded_file', filename=note.document_path) }}">Fichier actuel</a>
+            {% endif %}
+        </div>
+        <button class="btn btn-success" type="submit">Enregistrer</button>
+    </form>
+</div>
+{% endblock %}

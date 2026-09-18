@@ -1,0 +1,38 @@
+{% extends 'layouts/base.html' %}
+{% block title %}Statistiques{% endblock %}
+{% block page_heading %}Statistiques{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="kpi"><div class="value">{{ stats.no_show }}%</div><div>Taux d’absence (jour)</div></div></div>
+    <div class="col-md-3"><div class="kpi"><div class="value">{{ stats.absents }}</div><div>Absents aujourd’hui</div></div></div>
+    <div class="col-md-3"><div class="kpi"><div class="value">{{ stats.total_patients }}</div><div>Patients</div></div></div>
+    <div class="col-md-3"><div class="kpi"><div class="value">{{ stats.rdv_confirmes }}</div><div>RDV confirmés (jour)</div></div></div>
+</div>
+<div class="card p-4 mb-4">
+    <h5>Charge par spécialité</h5>
+    {% set maxc = namespace(v=1) %}
+    {% for spec, count in stats.par_specialite %}
+        {% if count > maxc.v %}{% set maxc.v = count %}{% endif %}
+    {% endfor %}
+    {% for spec, count in stats.par_specialite %}
+    <div class="mb-2">
+        <div class="d-flex justify-content-between"><span>{{ spec or 'Non renseignée' }}</span><span>{{ count }}</span></div>
+        <div class="stat-bar"><span style="width: {{ (count / maxc.v * 100)|int }}%"></span></div>
+    </div>
+    {% else %}
+    <p>Pas encore de données.</p>
+    {% endfor %}
+</div>
+<div class="card p-4">
+    <h5>Occupation des salles (consultations en cours)</h5>
+    <div class="row">
+        {% for row in stats.occupation %}
+        <div class="col-md-3 mb-2">
+            <div class="p-3 rounded-4 {% if row.occupee %}bg-warning-subtle{% else %}bg-success-subtle{% endif %}">
+                {{ row.salle.numero }} — {{ 'Occupée' if row.occupee else 'Libre' }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

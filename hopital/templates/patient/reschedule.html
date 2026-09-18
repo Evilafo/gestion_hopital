@@ -1,0 +1,27 @@
+{% extends 'layouts/base.html' %}
+{% from 'macros.html' import csrf_field %}
+{% block title %}Modifier le rendez-vous{% endblock %}
+{% block page_heading %}Changer de créneau{% endblock %}
+{% block content %}
+<div class="card p-4">
+    <p>RDV actuel : {{ rv.date|date_fr }} à {{ rv.heure.strftime('%H:%M') }} — Dr. {{ rv.medecin.nom_complet }}</p>
+    {% if slots %}
+    <form method="POST">
+        {{ csrf_field() }}
+        <div class="row g-2">
+            {% for slot in slots %}
+            <div class="col-auto">
+                <label class="btn btn-outline-success">
+                    <input type="radio" name="slot_id" value="{{ slot.id }}" required>
+                    {{ slot.date.strftime('%d/%m') }} {{ slot.heure_debut.strftime('%H:%M') }}
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+        <button class="btn btn-success mt-3" type="submit">Enregistrer le nouveau créneau</button>
+    </form>
+    {% else %}
+    <div class="alert alert-info">Aucun autre créneau disponible pour ce médecin.</div>
+    {% endif %}
+</div>
+{% endblock %}

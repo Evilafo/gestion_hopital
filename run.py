@@ -4,7 +4,11 @@ Script de démarrage pour l'application de gestion hospitalière
 """
 
 import os
-from app import app, db, User, Salle
+from hopital.extensions import db
+from hopital.models import User, Salle
+from app import create_app
+
+app = create_app()
 
 def create_admin_user():
     """Crée un utilisateur administrateur par défaut s'il n'existe pas"""
@@ -15,7 +19,7 @@ def create_admin_user():
             prenom='Système',
             email='admin@hopital.com',
             role='admin',
-            contact='0000000000'
+            compte_web=True
         )
         admin.set_password('admin123')
         db.session.add(admin)
@@ -47,7 +51,8 @@ def create_sample_medecin():
             role='medecin',
             contact='0123456789',
             specialite='Médecine Générale',
-            salle_id=salle.id if salle else None
+            salle_id=salle.id if salle else None,
+            compte_web=True
         )
         medecin.set_password('medecin123')
         db.session.add(medecin)
@@ -73,4 +78,6 @@ if __name__ == '__main__':
         print("="*50 + "\n")
     
     # Démarrer l'application
-    app.run(debug=True, host='0.0.0.0', port=5002)
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    #app.run(debug=debug, host='0.0.0.0', port=5002)
+    app.run(debug=False, host='0.0.0.0', port=5002)

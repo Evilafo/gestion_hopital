@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Salle d'attente</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="waiting-screen">
+    <div class="d-flex justify-content-between mb-4">
+        <h1>Clinique Frebonne</h1>
+        <h2>{{ date_du_jour.strftime('%d/%m/%Y') }}</h2>
+    </div>
+    <h3 class="mb-4">Patients appelés</h3>
+    <div class="row g-4" id="called"></div>
+    <h4 class="mt-5">Prochains patients</h4>
+    <div id="next" class="row g-3"></div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+    pollQueue(function (data) {
+        const called = [];
+        const next = [];
+        data.medecins.forEach(function (m) {
+            m.patients.forEach(function (p) {
+                if (p.statut === 'En Consultation') {
+                    called.push({nom: p.nom, salle: m.salle, medecin: m.nom});
+                } else if (p.statut === 'En Attente') {
+                    next.push({nom: p.nom, salle: m.salle, heure: p.heure});
+                }
+            });
+        });
+        document.getElementById('called').innerHTML = called.length ? called.map(function (c) {
+            return '<div class="col-md-6"><div class="called-card"><div class="display-5">' + c.nom +
+                '</div><p class="lead mt-3">Salle ' + c.salle + ' — ' + c.medecin + '</p></div></div>';
+        }).join('') : '<p>Aucun patient appelé pour le moment.</p>';
+        document.getElementById('next').innerHTML = next.slice(0, 6).map(function (n) {
+            return '<div class="col-md-4"><div class="p-3 bg-white text-dark rounded-4"><strong>' + n.nom +
+                '</strong><div>Salle ' + n.salle + ' — ' + n.heure + '</div></div></div>';
+        }).join('');
+    }, 5000);
+    </script>
+</body>
+</html>

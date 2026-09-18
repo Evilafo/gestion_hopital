@@ -1,0 +1,38 @@
+#version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: hopital-mysql
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: Azerty1234
+      MYSQL_DATABASE: hopital_db
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: Azerty1234
+
+    ports:
+      - "3306:3306"
+
+    volumes:
+      - .././volume/mysql:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: hopital-phpmyadmin
+
+    restart: unless-stopped
+
+    depends_on:
+      - mysql
+
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+
+    ports:
+      - "8080:80"
+
+volumes:
+  mysql_data:

@@ -1,31 +1,25 @@
 {% extends 'layouts/base.html' %}
-
+{% from 'macros.html' import csrf_field %}
 {% block title %}Connexion{% endblock %}
-
+{% block page_heading %}Connexion{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card shadow-lg">
-            <div class="card-header bg-primary text-white text-center rounded-top-3">
-                <h2>Accès au Système</h2>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('login') }}">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Nom d'utilisateur / Email</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Mot de passe</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary w-100">Se Connecter</button>
-                </form>
-            </div>
-            <div class="card-footer text-center">
-                <small>Pas encore de compte ? <a href="{{ url_for('register_patient') }}">Inscrivez-vous (Patient)</a></small>
-            </div>
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <h2 class="h4 mb-3">Accès à votre espace</h2>
+            <form method="POST">
+                {{ csrf_field() }}
+                <div class="mb-3">
+                    <label class="form-label" for="username">Email</label>
+                    <input type="email" class="form-control" id="username" name="username" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="password">Mot de passe</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-success w-100">Se connecter</button>
+            </form>
+            <p class="text-center mt-3 mb-0"><a href="{{ url_for('register_patient') }}">Créer un compte patient</a></p>
         </div>
     </div>
 </div>
