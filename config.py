@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'votre-cle-secrete-changez-moi'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'votre-cle-secrete-changez-moi-en-production'
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or f"mysql+pymysql://{os.environ.get('DB_USER', 'root')}:{os.environ.get('DB_PASSWORD', 'Azerty1234')}@{os.environ.get('DB_HOST', 'localhost')}/{os.environ.get('DB_NAME', 'hopital_db')}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
@@ -14,6 +14,10 @@ class Config:
     DB_USER = os.environ.get('DB_USER') or 'root'
     DB_PASSWORD = os.environ.get('DB_PASSWORD') or 'Azerty1234'
     DB_NAME = os.environ.get('DB_NAME') or 'hopital_db'
+    
+    # Host configuration for Docker
+    HOST = os.environ.get('HOST') or '0.0.0.0'
+    PORT = int(os.environ.get('PORT') or 5002)
     
     # Configuration de l'application
     DEBUG = os.environ.get('DEBUG') == 'True'

@@ -7,8 +7,11 @@ import os
 from hopital.extensions import db
 from hopital.models import User, Salle
 from app import create_app
+from config import config
 
-app = create_app()
+# Get the environment name
+env = os.environ.get('FLASK_ENV', 'default')
+app = create_app(env)
 
 def create_admin_user():
     """Crée un utilisateur administrateur par défaut s'il n'existe pas"""
@@ -79,5 +82,6 @@ if __name__ == '__main__':
     
     # Démarrer l'application
     debug = os.environ.get('FLASK_ENV') != 'production'
-    #app.run(debug=debug, host='0.0.0.0', port=5002)
-    app.run(debug=False, host='0.0.0.0', port=5002)
+    host = app.config.get('HOST', '0.0.0.0')
+    port = app.config.get('PORT', 5002)
+    app.run(debug=debug, host=host, port=port)
