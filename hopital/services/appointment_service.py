@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from typing import Optional, Tuple, List
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 from hopital.extensions import db
@@ -10,7 +11,7 @@ class AppointmentService:
     """Service pour la gestion des rendez-vous"""
     
     @staticmethod
-    def book_slot(slot_id: int, patient_id: int, motif: str = None) -> tuple[RendezVous, str]:
+    def book_slot(slot_id: int, patient_id: int, motif: Optional[str] = None) -> Tuple[Optional[RendezVous], Optional[str]]:
         """
         Réserve un créneau pour un patient
         
@@ -60,7 +61,7 @@ class AppointmentService:
         return rv, None
     
     @staticmethod
-    def cancel_appointment(rv_id: int) -> tuple[bool, str]:
+    def cancel_appointment(rv_id: int) -> Tuple[bool, Optional[str]]:
         """
         Annule un rendez-vous
         
@@ -93,7 +94,7 @@ class AppointmentService:
         return True, None
     
     @staticmethod
-    def reschedule_appointment(rv_id: int, new_slot_id: int) -> tuple[bool, str]:
+    def reschedule_appointment(rv_id: int, new_slot_id: int) -> Tuple[bool, Optional[str]]:
         """
         Reprogramme un rendez-vous
         
@@ -142,8 +143,8 @@ class AppointmentService:
         return True, None
     
     @staticmethod
-    def get_available_slots(medecin_id: int = None, specialite: str = None, 
-                           start_date: date = None, end_date: date = None):
+    def get_available_slots(medecin_id: Optional[int] = None, specialite: Optional[str] = None, 
+                           start_date: Optional[date] = None, end_date: Optional[date] = None):
         """
         Récupère les créneaux disponibles
         
@@ -178,7 +179,7 @@ class AppointmentService:
         return query.order_by(Creneau.date, Creneau.heure_debut)
     
     @staticmethod
-    def get_patient_appointments(patient_id: int, upcoming: bool = True, limit: int = None):
+    def get_patient_appointments(patient_id: int, upcoming: bool = True, limit: Optional[int] = None) -> List[RendezVous]:
         """
         Récupère les rendez-vous d'un patient
         

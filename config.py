@@ -37,6 +37,9 @@ class Config:
 
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
     PER_PAGE = 12
+    
+    # Configuration du logging
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 
 class DevelopmentConfig(Config):
     DEBUG = True

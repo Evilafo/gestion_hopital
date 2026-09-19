@@ -1,11 +1,14 @@
-from flask import Flask
+from flask import Flask, g, request
 import os
+import uuid
 
 from config import config
 from hopital.extensions import db, login_manager, csrf, mail, migrate, limiter
 from hopital.routes import register_routes
 from hopital.services.services import ensure_schema
 from hopital.security import SecurityConfig
+from hopital.error_handlers import register_error_handlers
+from hopital.logging_config import setup_logging
 
 
 def create_app(config_name=None):
@@ -22,6 +25,24 @@ def create_app(config_name=None):
     mail.init_app(app)
     migrate.init_app(app, db)
     limiter.init_app(app)
+    
+    # Configuration du logging
+    setup_logging(app)
+    
+    # Enregistrement des handlers d'erreurs
+    register_error_handlers(app)
+    
+    # Middleware pour le contexte de requête
+    @app.before_request
+    def before_request():
+        g.request_id = str(uuid.uuid4())
+        if hasattr(g, 'user') and g.user.is_authenticated:
+            g.user_id = g.user.id
+    
+    @app.after_request
+    def after_request(response):
+        response.headers['X-Request-ID'] = g.get('request_id', '')
+        return response
     
     # Configuration de sécurité
     app.config['SESSION_COOKIE_HTTPONLY'] = SecurityConfig.SESSION_COOKIE_HTTPONLY

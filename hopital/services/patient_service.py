@@ -1,3 +1,4 @@
+from typing import Optional, Tuple
 from hopital.extensions import db
 from hopital.models import User, PatientProfil
 
@@ -6,7 +7,7 @@ class PatientService:
     """Service pour la gestion des patients"""
     
     @staticmethod
-    def ensure_patient_profile(user: User) -> PatientProfil:
+    def ensure_patient_profile(user: User) -> Optional[PatientProfil]:
         """
         Assure qu'un patient a un profil patient, le crée si nécessaire
         
@@ -31,7 +32,7 @@ class PatientService:
         return user.profil_patient
     
     @staticmethod
-    def update_patient_profile(user: User, data: dict) -> tuple[bool, str]:
+    def update_patient_profile(user: User, data: dict) -> Tuple[bool, Optional[str]]:
         """
         Met à jour le profil d'un patient
         
@@ -79,7 +80,7 @@ class PatientService:
             return False, str(e)
     
     @staticmethod
-    def search_patients(query: str = None, page: int = 1, per_page: int = 12):
+    def search_patients(query: Optional[str] = None, page: int = 1, per_page: int = 12):
         """
         Recherche des patients avec pagination
         

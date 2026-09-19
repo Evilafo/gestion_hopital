@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional, Tuple
 from flask_login import login_user
 from hopital.extensions import db
 from hopital.models import User
@@ -10,7 +11,7 @@ class AuthService:
     """Service pour la gestion de l'authentification"""
     
     @staticmethod
-    def authenticate_user(email: str, password: str) -> tuple[User, str]:
+    def authenticate_user(email: str, password: str) -> Tuple[Optional[User], Optional[str]]:
         """
         Authentifie un utilisateur avec email et mot de passe
         
@@ -35,7 +36,7 @@ class AuthService:
         return user, None
     
     @staticmethod
-    def register_patient(data: dict) -> tuple[User, str]:
+    def register_patient(data: dict) -> Tuple[Optional[User], Optional[str]]:
         """
         Enregistre un nouveau patient
         

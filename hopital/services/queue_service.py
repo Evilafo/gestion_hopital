@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from typing import Optional, Tuple, List, Dict
 from sqlalchemy.orm import joinedload
 from hopital.extensions import db
 from hopital.models import RendezVous, FileAttente, User
@@ -8,7 +9,7 @@ class QueueService:
     """Service pour la gestion de la file d'attente"""
     
     @staticmethod
-    def sync_file_du_jour(jour: date = None):
+    def sync_file_du_jour(jour: Optional[date] = None) -> None:
         """
         Synchronise la file d'attente pour un jour donné
         
@@ -62,7 +63,7 @@ class QueueService:
         db.session.commit()
     
     @staticmethod
-    def get_patient_position(patient_id: int, jour: date = None) -> dict:
+    def get_patient_position(patient_id: int, jour: Optional[date] = None) -> Optional[Dict]:
         """
         Récupère la position d'un patient dans la file d'attente
         
@@ -95,7 +96,7 @@ class QueueService:
         return {'file': fa, 'rang': rang}
     
     @staticmethod
-    def get_file_payload(jour: date = None) -> list:
+    def get_file_payload(jour: Optional[date] = None) -> List[Dict]:
         """
         Récupère les données de la file d'attente pour l'affichage
         
@@ -131,7 +132,7 @@ class QueueService:
         return data
     
     @staticmethod
-    def check_in_patient(file_id: int) -> tuple[bool, str]:
+    def check_in_patient(file_id: int) -> Tuple[bool, Optional[str]]:
         """
         Enregistre l'arrivée d'un patient
         
@@ -155,7 +156,7 @@ class QueueService:
         return True, None
     
     @staticmethod
-    def start_consultation(file_id: int, medecin_id: int) -> tuple[bool, str]:
+    def start_consultation(file_id: int, medecin_id: int) -> Tuple[bool, Optional[str]]:
         """
         Démarre une consultation
         
@@ -181,7 +182,7 @@ class QueueService:
         return True, None
     
     @staticmethod
-    def end_consultation(file_id: int) -> tuple[bool, str]:
+    def end_consultation(file_id: int) -> Tuple[bool, Optional[str]]:
         """
         Termine une consultation
         
@@ -203,7 +204,7 @@ class QueueService:
         return True, None
     
     @staticmethod
-    def get_consultation_en_cours(medecin_id: int, jour: date = None) -> FileAttente:
+    def get_consultation_en_cours(medecin_id: int, jour: Optional[date] = None) -> Optional[FileAttente]:
         """
         Récupère la consultation en cours pour un médecin
         
@@ -222,7 +223,7 @@ class QueueService:
         ).first()
     
     @staticmethod
-    def move_patient_in_queue(file_id: int, direction: str) -> tuple[bool, str]:
+    def move_patient_in_queue(file_id: int, direction: str) -> Tuple[bool, Optional[str]]:
         """
         Déplace un patient dans la file d'attente
         
@@ -255,7 +256,7 @@ class QueueService:
         return False, "Déplacement impossible"
     
     @staticmethod
-    def mark_patient_absent(file_id: int) -> tuple[bool, str]:
+    def mark_patient_absent(file_id: int) -> Tuple[bool, Optional[str]]:
         """
         Marque un patient comme absent
         
@@ -279,7 +280,7 @@ class QueueService:
         return True, None
     
     @staticmethod
-    def delay_patient(file_id: int, minutes: int = 15) -> tuple[bool, str]:
+    def delay_patient(file_id: int, minutes: int = 15) -> Tuple[bool, Optional[str]]:
         """
         Enregistre un retard pour un patient
         
