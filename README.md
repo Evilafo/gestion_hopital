@@ -93,6 +93,7 @@ Comptes disponibles pour les tests :
 | Médecin | pierre.bernard@cliniquebodo.com | Medecin1234 |
 | Patient | aya.kouassi@email.com | Patient1234 |
 
+
 ## Structure de l'application
 
 ```
