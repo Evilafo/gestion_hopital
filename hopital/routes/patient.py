@@ -141,7 +141,7 @@ def register_routes(app):
         if current_user.role == 'patient':
             return _patient_dashboard()
         if current_user.role == 'medecin':
-            return redirect(url_for('medecin.dashboard'))
+            return redirect(url_for('medecin_dashboard'))
         if current_user.role in ['secretaire', 'admin']:
             QueueService.sync_file_du_jour()
             from hopital.services.admin_service import AdminService

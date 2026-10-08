@@ -68,7 +68,7 @@ def register_routes(app):
                 return render_template('medecin/add_slot.html')
             count = len(creneaux) if creneaux else 0
             flash(f'{count} créneau(x) ajouté(s) avec succès', 'success')
-            return redirect(url_for('medecin.dashboard'))
+            return redirect(url_for('medecin_dashboard'))
         return render_template('medecin/add_slot.html')
 
     @app.route('/planning-semaine')
@@ -99,7 +99,7 @@ def register_routes(app):
             flash('Créneau supprimé', 'success')
         else:
             flash(err or 'Impossible de supprimer ce créneau', 'danger')
-        return redirect(url_for('medecin.dashboard'))
+        return redirect(url_for('medecin_dashboard'))
 
     @app.route('/start-consultation/<int:queue_id>', methods=['POST'])
     @role_required('medecin')
@@ -107,9 +107,9 @@ def register_routes(app):
         success, err = QueueService.start_consultation(queue_id, current_user.id)
         if not success:
             flash(err or 'File introuvable', 'danger')
-            return redirect(url_for('medecin.dashboard'))
+            return redirect(url_for('medecin_dashboard'))
         flash('Consultation commencée', 'success')
-        return redirect(url_for('medecin.dashboard'))
+        return redirect(url_for('medecin_dashboard'))
 
     @app.route('/end-consultation/<int:queue_id>', methods=['POST'])
     @role_required('medecin')
@@ -117,17 +117,17 @@ def register_routes(app):
         fa = db.session.get(FileAttente, queue_id)
         if not fa:
             flash('File introuvable', 'danger')
-            return redirect(url_for('medecin.dashboard'))
+            return redirect(url_for('medecin_dashboard'))
         if fa.medecin_id != current_user.id:
             flash('Accès non autorisé', 'danger')
-            return redirect(url_for('medecin.dashboard'))
+            return redirect(url_for('medecin_dashboard'))
         if not fa.rendez_vous_id:
             flash('Aucun rendez-vous associé', 'danger')
-            return redirect(url_for('medecin.dashboard'))
+            return redirect(url_for('medecin_dashboard'))
         success, err = QueueService.end_consultation(queue_id)
         if not success:
             flash(err or 'Erreur lors de la terminaison', 'danger')
-            return redirect(url_for('medecin.dashboard'))
+            return redirect(url_for('medecin_dashboard'))
         flash('Consultation terminée. Vous pouvez ajouter une note.', 'success')
         return redirect(url_for('consultation_note', rdv_id=fa.rendez_vous_id))
 
@@ -139,10 +139,10 @@ def register_routes(app):
         ).filter_by(id=rdv_id).first()
         if not rdv:
             flash('Rendez-vous introuvable', 'danger')
-            return redirect(url_for('medecin.dashboard'))
+            return redirect(url_for('medecin_dashboard'))
         if rdv.medecin_id != current_user.id:
             flash('Accès non autorisé', 'danger')
-            return redirect(url_for('medecin.dashboard'))
+            return redirect(url_for('medecin_dashboard'))
         note = rdv.note or NoteConsultation(rendez_vous_id=rdv.id, medecin_id=current_user.id)
         if request.method == 'POST':
             data = {
