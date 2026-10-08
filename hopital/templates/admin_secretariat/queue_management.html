@@ -26,7 +26,7 @@
 {% for block in file_data %}
 <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="m-{{ block.medecin.id }}">
     <div class="d-flex justify-content-between mb-3">
-        <h5>Dr. {{ block.medecin.nom_complet }} — salle {{ block.salle }}</h5>
+        <h5>Dr. {{ block.medecin.nom_complet }} — salle {{ block.salle }} {% if block.medecin.salle_ref and block.medecin.salle_ref.en_consultation %}<span class="badge bg-danger">Occupée</span>{% endif %}</h5>
         {{ post_btn(url_for('next_patient', medecin_id=block.medecin.id), 'Patient suivant', 'btn btn-success') }}
     </div>
     <div class="table-responsive d-none d-md-block">

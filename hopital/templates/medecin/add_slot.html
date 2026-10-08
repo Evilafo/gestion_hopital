@@ -6,11 +6,19 @@
 <div class="row justify-content-center">
     <div class="col-lg-6">
         <div class="card p-4">
-            <form method="POST">
+            <form method="POST" id="slotForm">
                 {{ csrf_field() }}
                 <div class="mb-3">
                     <label class="form-label" for="date">Date</label>
                     <input type="date" class="form-control" id="date" name="date" required min="{{ today.isoformat() }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Sélection rapide</label>
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="setQuickSlot('matin')">Matinée (8h-12h)</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="setQuickSlot('apresmidi')">Après-midi (14h-18h)</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="setQuickSlot('journee')">Toute journée (8h-18h)</button>
+                    </div>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -22,9 +30,43 @@
                         <input type="time" class="form-control" id="heure_fin" name="heure_fin" required>
                     </div>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label" for="interval">Intervalle (minutes)</label>
+                    <select class="form-select" id="interval" name="interval">
+                        <option value="">Un seul créneau</option>
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60">1 heure</option>
+                    </select>
+                    <small class="text-muted">Laissez vide pour créer un seul créneau, ou sélectionnez un intervalle pour créer plusieurs créneaux</small>
+                </div>
                 <button class="btn btn-success" type="submit">Ajouter</button>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+function setQuickSlot(type) {
+    const debut = document.getElementById('heure_debut');
+    const fin = document.getElementById('heure_fin');
+    const interval = document.getElementById('interval');
+
+    if (type === 'matin') {
+        debut.value = '08:00';
+        fin.value = '12:00';
+        interval.value = '30';
+    } else if (type === 'apresmidi') {
+        debut.value = '14:00';
+        fin.value = '18:00';
+        interval.value = '30';
+    } else if (type === 'journee') {
+        debut.value = '08:00';
+        fin.value = '18:00';
+        interval.value = '30';
+    }
+}
+</script>
 {% endblock %}

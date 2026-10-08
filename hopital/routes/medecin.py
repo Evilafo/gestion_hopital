@@ -7,6 +7,7 @@ from hopital.extensions import db
 from hopital.models import User, Creneau, RendezVous, FileAttente, NoteConsultation
 from hopital.services.queue_service import QueueService
 from hopital.services.medecin_service import MedecinService
+from hopital.services.patient_service import PatientService
 from hopital.utils import week_dates
 from werkzeug.utils import secure_filename
 import os
@@ -60,11 +61,13 @@ def register_routes(app):
             date_slot = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
             heure_debut = datetime.strptime(request.form['heure_debut'], '%H:%M').time()
             heure_fin = datetime.strptime(request.form['heure_fin'], '%H:%M').time()
-            creneau, err = MedecinService.add_slot(current_user.id, date_slot, heure_debut, heure_fin)
+            interval = request.form.get('interval', type=int)
+            creneaux, err = MedecinService.add_slot(current_user.id, date_slot, heure_debut, heure_fin, interval)
             if err:
                 flash(err, 'danger')
                 return render_template('medecin/add_slot.html')
-            flash('Créneau ajouté avec succès', 'success')
+            count = len(creneaux) if creneaux else 0
+            flash(f'{count} créneau(x) ajouté(s) avec succès', 'success')
             return redirect(url_for('medecin.dashboard'))
         return render_template('medecin/add_slot.html')
 
@@ -111,11 +114,20 @@ def register_routes(app):
     @app.route('/end-consultation/<int:queue_id>', methods=['POST'])
     @role_required('medecin')
     def end_consultation(queue_id):
+        fa = db.session.get(FileAttente, queue_id)
+        if not fa:
+            flash('File introuvable', 'danger')
+            return redirect(url_for('medecin.dashboard'))
+        if fa.medecin_id != current_user.id:
+            flash('Accès non autorisé', 'danger')
+            return redirect(url_for('medecin.dashboard'))
+        if not fa.rendez_vous_id:
+            flash('Aucun rendez-vous associé', 'danger')
+            return redirect(url_for('medecin.dashboard'))
         success, err = QueueService.end_consultation(queue_id)
         if not success:
-            flash(err or 'File introuvable', 'danger')
+            flash(err or 'Erreur lors de la terminaison', 'danger')
             return redirect(url_for('medecin.dashboard'))
-        fa = db.session.get(FileAttente, queue_id)
         flash('Consultation terminée. Vous pouvez ajouter une note.', 'success')
         return redirect(url_for('consultation_note', rdv_id=fa.rendez_vous_id))
 

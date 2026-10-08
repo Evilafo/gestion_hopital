@@ -12,46 +12,81 @@ class MedecinService:
     """Service pour la gestion des médecins"""
     
     @staticmethod
-    def add_slot(medecin_id: int, date_slot: date, heure_debut: time, 
-                 heure_fin: time) -> tuple[Creneau, str]:
+    def add_slot(medecin_id: int, date_slot: date, heure_debut: time,
+                 heure_fin: time, interval: int = None) -> tuple[list, str]:
         """
-        Ajoute un créneau pour un médecin
-        
+        Ajoute un ou plusieurs créneaux pour un médecin
+
         Args:
             medecin_id: ID du médecin
             date_slot: Date du créneau
             heure_debut: Heure de début
             heure_fin: Heure de fin
-            
+            interval: Intervalle en minutes pour créer plusieurs créneaux (optionnel)
+
         Returns:
-            Tuple (Creneau, error_message) - Creneau si succès, None + message d'erreur sinon
+            Tuple (list of Creneau, error_message) - Liste de créneaux si succès, None + message d'erreur sinon
         """
         if heure_fin <= heure_debut:
             return None, "L'heure de fin doit être après l'heure de début"
-        
-        # Vérifier les conflits
-        existing = Creneau.query.filter(
-            Creneau.medecin_id == medecin_id,
-            Creneau.date == date_slot,
-            Creneau.heure_debut < heure_fin,
-            Creneau.heure_fin > heure_debut
-        ).first()
-        
-        if existing:
-            return None, "Conflit avec un créneau existant"
-        
-        creneau = Creneau(
-            medecin_id=medecin_id,
-            date=date_slot,
-            heure_debut=heure_debut,
-            heure_fin=heure_fin,
-            disponible=True
-        )
-        
-        db.session.add(creneau)
-        db.session.commit()
-        
-        return creneau, None
+
+        if interval:
+            # Créer plusieurs créneaux avec un intervalle
+            creneaux = []
+            current_debut = datetime.combine(date_slot, heure_debut)
+            end_time = datetime.combine(date_slot, heure_fin)
+
+            while current_debut + timedelta(minutes=interval) <= end_time:
+                current_fin = current_debut + timedelta(minutes=interval)
+
+                # Vérifier les conflits
+                existing = Creneau.query.filter(
+                    Creneau.medecin_id == medecin_id,
+                    Creneau.date == date_slot,
+                    Creneau.heure_debut < current_fin.time(),
+                    Creneau.heure_fin > current_debut.time()
+                ).first()
+
+                if existing:
+                    return None, f"Conflit avec un créneau existant à {current_debut.strftime('%H:%M')}"
+
+                creneau = Creneau(
+                    medecin_id=medecin_id,
+                    date=date_slot,
+                    heure_debut=current_debut.time(),
+                    heure_fin=current_fin.time(),
+                    disponible=True
+                )
+                db.session.add(creneau)
+                creneaux.append(creneau)
+                current_debut = current_fin
+
+            db.session.commit()
+            return creneaux, None
+        else:
+            # Créer un seul créneau
+            existing = Creneau.query.filter(
+                Creneau.medecin_id == medecin_id,
+                Creneau.date == date_slot,
+                Creneau.heure_debut < heure_fin,
+                Creneau.heure_fin > heure_debut
+            ).first()
+
+            if existing:
+                return None, "Conflit avec un créneau existant"
+
+            creneau = Creneau(
+                medecin_id=medecin_id,
+                date=date_slot,
+                heure_debut=heure_debut,
+                heure_fin=heure_fin,
+                disponible=True
+            )
+
+            db.session.add(creneau)
+            db.session.commit()
+
+            return [creneau], None
     
     @staticmethod
     def delete_slot(slot_id: int, medecin_id: int) -> tuple[bool, str]:

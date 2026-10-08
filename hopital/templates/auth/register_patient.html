@@ -41,7 +41,13 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="password">Mot de passe</label>
-                    <input type="password" class="form-control" id="password" name="password" required minlength="6">
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="password" name="password" required minlength="8" pattern="[a-zA-Z0-9]+" title="8 caractères alphanumériques (lettres et chiffres uniquement)">
+                        <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">8 caractères alphanumériques (lettres et chiffres uniquement)</small>
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="contact">Téléphone</label>
@@ -58,4 +64,21 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('togglePassword')?.addEventListener('click', function() {
+    const passwordInput = document.getElementById('password');
+    const icon = this.querySelector('i');
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+    }
+});
+</script>
 {% endblock %}

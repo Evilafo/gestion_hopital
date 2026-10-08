@@ -42,7 +42,7 @@ def _create_user(role, email, password='TestPassword123!', **kwargs):
 def test_home(client):
     res = client.get('/')
     assert res.status_code == 200
-    assert 'Clinique Frebonne'.encode() in res.data
+    assert 'Clinique Bodo'.encode() in res.data
 
 
 def test_register_and_login(client, app):

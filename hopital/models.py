@@ -59,6 +59,7 @@ class Salle(db.Model):
     numero = db.Column(db.String(20), nullable=False, unique=True)
     nom = db.Column(db.String(100))
     disponible = db.Column(db.Boolean, default=True)
+    en_consultation = db.Column(db.Boolean, default=False)
     medecins = db.relationship('User', backref='salle_ref')
 
 

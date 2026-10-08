@@ -167,6 +167,8 @@ class QueueService:
         Returns:
             Tuple (success, error_message)
         """
+        from hopital.models import User
+        
         fa = db.session.get(FileAttente, file_id)
         
         if not fa or fa.medecin_id != medecin_id:
@@ -177,6 +179,12 @@ class QueueService:
             return False, "Terminez d'abord la consultation en cours"
         
         fa.statut_file = 'En Consultation'
+        
+        # Marquer la salle comme occupée
+        medecin = db.session.get(User, medecin_id)
+        if medecin and medecin.salle_ref:
+            medecin.salle_ref.en_consultation = True
+        
         db.session.commit()
         
         return True, None
@@ -192,6 +200,8 @@ class QueueService:
         Returns:
             Tuple (success, error_message)
         """
+        from hopital.models import User
+        
         fa = db.session.get(FileAttente, file_id)
         
         if not fa:
@@ -199,6 +209,12 @@ class QueueService:
         
         fa.statut_file = 'Terminé'
         fa.rendez_vous.statut = 'Terminé'
+        
+        # Libérer la salle
+        medecin = db.session.get(User, fa.medecin_id)
+        if medecin and medecin.salle_ref:
+            medecin.salle_ref.en_consultation = False
+        
         db.session.commit()
         
         return True, None
