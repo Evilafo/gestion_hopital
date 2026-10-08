@@ -93,6 +93,24 @@ Comptes disponibles pour les tests :
 | Médecin | pierre.bernard@cliniquebodo.com | Medecin1234 |
 | Patient | aya.kouassi@email.com | Patient1234 |
 
+### Peuplement de la base de données
+
+Les données de test sont automatiquement insérées lors du démarrage du conteneur Docker via le script `scripts/seed_database.py`. Ce script est idempotent, ce qui signifie qu'il peut être exécuté plusieurs fois sans créer de doublons.
+
+Pour peupler manuellement la base de données (en dehors de Docker):
+
+```bash
+python scripts/seed_database.py
+```
+
+Les données incluent:
+- 5 salles de consultation
+- 2 secrétaires
+- 5 médecins (généraliste, cardiologue, dermatologue, pédiatre, ORL)
+- 16 patients avec profils médicaux
+- Créneaux pour les 2 prochaines semaines
+- 10 rendez-vous pour aujourd'hui
+
 
 ## Structure de l'application
 

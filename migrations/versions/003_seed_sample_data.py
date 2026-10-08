@@ -26,6 +26,7 @@ class User(Base):
     nom = sa.Column(sa.String(100))
     prenom = sa.Column(sa.String(100))
     email = sa.Column(sa.String(120), unique=True)
+    password_hash = sa.Column(sa.String(255))
     role = sa.Column(sa.String(50))
     contact = sa.Column(sa.String(20))
     specialite = sa.Column(sa.String(100))
@@ -129,17 +130,20 @@ def upgrade():
         ]
 
         for sec_data in secretaires_data:
-            user, created = get_or_create(session, User, defaults={
-                'nom': sec_data['nom'],
-                'prenom': sec_data['prenom'],
-                'role': sec_data['role'],
-                'contact': sec_data['contact'],
-                'compte_web': sec_data['compte_web']
-            }, email=sec_data['email'])
-            if created:
-                # Hasher le mot de passe avec Werkzeug
+            user = session.query(User).filter_by(email=sec_data['email']).first()
+            if not user:
                 from werkzeug.security import generate_password_hash
-                user.password_hash = generate_password_hash('Secret1234')
+                user = User(
+                    nom=sec_data['nom'],
+                    prenom=sec_data['prenom'],
+                    email=sec_data['email'],
+                    role=sec_data['role'],
+                    contact=sec_data['contact'],
+                    compte_web=sec_data['compte_web'],
+                    password_hash=generate_password_hash('Secret1234')
+                )
+                session.add(user)
+                session.flush()
 
         # Créer les médecins si ils n'existent pas
         print("👨‍⚕️ Création des médecins...")
@@ -188,18 +192,22 @@ def upgrade():
 
         medecins = []
         for m_data in medecins_data:
-            user, created = get_or_create(session, User, defaults={
-                'nom': m_data['nom'],
-                'prenom': m_data['prenom'],
-                'role': 'medecin',
-                'specialite': m_data['specialite'],
-                'salle_id': salles[m_data['salle_num']].id,
-                'contact': m_data['contact'],
-                'compte_web': True
-            }, email=m_data['email'])
-            if created:
+            user = session.query(User).filter_by(email=m_data['email']).first()
+            if not user:
                 from werkzeug.security import generate_password_hash
-                user.password_hash = generate_password_hash('Medecin1234')
+                user = User(
+                    nom=m_data['nom'],
+                    prenom=m_data['prenom'],
+                    email=m_data['email'],
+                    role='medecin',
+                    specialite=m_data['specialite'],
+                    salle_id=salles[m_data['salle_num']].id,
+                    contact=m_data['contact'],
+                    compte_web=True,
+                    password_hash=generate_password_hash('Medecin1234')
+                )
+                session.add(user)
+                session.flush()
             medecins.append(user)
 
         # Créer les patients si ils n'existent pas
@@ -353,17 +361,21 @@ def upgrade():
 
         patients = []
         for i, p_data in enumerate(patients_data):
-            user, created = get_or_create(session, User, defaults={
-                'nom': p_data['nom'],
-                'prenom': p_data['prenom'],
-                'role': 'patient',
-                'contact': p_data['contact'],
-                'date_naissance': p_data['date_naissance'],
-                'compte_web': True
-            }, email=p_data['email'])
-            if created:
+            user = session.query(User).filter_by(email=p_data['email']).first()
+            if not user:
                 from werkzeug.security import generate_password_hash
-                user.password_hash = generate_password_hash('Patient1234')
+                user = User(
+                    nom=p_data['nom'],
+                    prenom=p_data['prenom'],
+                    email=p_data['email'],
+                    role='patient',
+                    contact=p_data['contact'],
+                    date_naissance=p_data['date_naissance'],
+                    compte_web=True,
+                    password_hash=generate_password_hash('Patient1234')
+                )
+                session.add(user)
+                session.flush()
             patients.append(user)
 
             # Créer le profil patient
@@ -384,18 +396,42 @@ def upgrade():
                 if current_date.weekday() < 5:  # Du lundi au vendredi
                     # Créneaux de la matinée (8h-12h)
                     for hour in range(8, 12):
-                        creneau, created = get_or_create(session, Creneau, defaults={
-                            'disponible': True
-                        }, medecin_id=medecin.id, date=current_date, heure_debut=time(hour, 0), heure_fin=time(hour, 0, 30))
-                        if created:
+                        creneau = session.query(Creneau).filter_by(
+                            medecin_id=medecin.id,
+                            date=current_date,
+                            heure_debut=time(hour, 0),
+                            heure_fin=time(hour, 0, 30)
+                        ).first()
+                        if not creneau:
+                            creneau = Creneau(
+                                medecin_id=medecin.id,
+                                date=current_date,
+                                heure_debut=time(hour, 0),
+                                heure_fin=time(hour, 0, 30),
+                                disponible=True
+                            )
+                            session.add(creneau)
+                            session.flush()
                             creneaux_count += 1
 
                     # Créneaux de l'après-midi (14h-18h)
                     for hour in range(14, 18):
-                        creneau, created = get_or_create(session, Creneau, defaults={
-                            'disponible': True
-                        }, medecin_id=medecin.id, date=current_date, heure_debut=time(hour, 0), heure_fin=time(hour, 0, 30))
-                        if created:
+                        creneau = session.query(Creneau).filter_by(
+                            medecin_id=medecin.id,
+                            date=current_date,
+                            heure_debut=time(hour, 0),
+                            heure_fin=time(hour, 0, 30)
+                        ).first()
+                        if not creneau:
+                            creneau = Creneau(
+                                medecin_id=medecin.id,
+                                date=current_date,
+                                heure_debut=time(hour, 0),
+                                heure_fin=time(hour, 0, 30),
+                                disponible=True
+                            )
+                            session.add(creneau)
+                            session.flush()
                             creneaux_count += 1
 
         # Créer quelques rendez-vous pour aujourd'hui
@@ -487,16 +523,23 @@ def upgrade():
             ).first()
 
             if creneau:
-                rv, created = get_or_create(session, RendezVous, defaults={
-                    'patient_id': patient.id,
-                    'medecin_id': medecin.id,
-                    'creneau_id': creneau.id,
-                    'date': rv_data['date'],
-                }, medecin_id=medecin.id, patient_id=patient.id, date=rv_data['date'], heure=rv_data['heure'])
-
-                if created:
-                    rv.statut = 'Confirmé'
-                    rv.motif = rv_data['motif']
+                rv = session.query(RendezVous).filter_by(
+                    medecin_id=medecin.id,
+                    patient_id=patient.id,
+                    date=rv_data['date'],
+                    heure=rv_data['heure']
+                ).first()
+                if not rv:
+                    rv = RendezVous(
+                        patient_id=patient.id,
+                        medecin_id=medecin.id,
+                        creneau_id=creneau.id,
+                        date=rv_data['date'],
+                        heure=rv_data['heure'],
+                        statut='Confirmé',
+                        motif=rv_data['motif']
+                    )
+                    session.add(rv)
                     creneau.disponible = False
                     rv_count += 1
 

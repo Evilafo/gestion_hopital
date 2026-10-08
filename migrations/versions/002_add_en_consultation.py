@@ -17,7 +17,14 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('salle', sa.Column('en_consultation', sa.Boolean(), nullable=False, server_default='false'))
+    # Vérifier si la colonne existe déjà
+    from alembic.context import get_bind
+    conn = get_bind()
+    inspector = sa.inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('salle')]
+    
+    if 'en_consultation' not in columns:
+        op.add_column('salle', sa.Column('en_consultation', sa.Boolean(), nullable=False, server_default='false'))
 
 
 def downgrade():

@@ -16,6 +16,7 @@ services:
       DB_PASSWORD: Azerty1234
       DB_NAME: hopital_db
       SECRET_KEY: ${SECRET_KEY:-votre-cle-secrete-changez-moi}
+      SEED_DATABASE: "true"
     
     volumes:
       - instance_data:/app/instance
